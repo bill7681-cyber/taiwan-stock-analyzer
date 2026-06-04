@@ -1,0 +1,305 @@
+import datetime
+import requests
+
+STOCK_DAY_API = "https://www.twse.com.tw/exchangeReport/STOCK_DAY"
+
+
+def get_month_strings(months=2):
+    today = datetime.date.today()
+    result = []
+    for _ in range(months):
+        result.append(today.strftime("%Y%m"))
+        first_day = today.replace(day=1)
+        today = first_day - datetime.timedelta(days=1)
+    return result
+
+
+def parse_int(value):
+    try:
+        return int(str(value).replace(',', '').replace('X', '').strip())
+    except Exception:
+        return 0
+
+
+def parse_float(value):
+    try:
+        return float(str(value).replace(',', '').replace('X', '').strip())
+    except Exception:
+        return 0.0
+
+
+def fetch_top_stocks_by_market_cap(limit=150):
+    """從 TWSE 取得市值前 N 大的股票清單"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+
+    stocks = []
+
+    try:
+        api_url = "https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL"
+        today = datetime.date.today()
+        params = {
+            "response": "json",
+            "date": today.strftime("%Y%m%d"),
+        }
+
+        response = requests.get(api_url, params=params, headers=headers, timeout=15)
+        response.raise_for_status()
+        payload = response.json()
+
+        if payload.get("stat") == "OK":
+            rows = payload.get("data", [])
+            for row in rows:
+                if len(row) >= 2:
+                    stock_id = row[0].strip()
+                    stock_name = row[1].strip()
+                    if stock_id.isdigit() and len(stock_id) == 4 and not stock_id.startswith('0'):
+                        stocks.append({"id": stock_id, "name": stock_name})
+                        if len(stocks) >= limit:
+                            break
+
+            if len(stocks) > 0:
+                return stocks
+
+        raise RuntimeError("無法從 TWSE API 取得足夠的股票資料")
+
+    except Exception as exc:
+        print(f"警告：{exc}")
+        print("將使用常見股票清單作為備用方案...")
+        stocks = fetch_popular_stocks(limit)
+
+    return stocks
+
+
+def fetch_popular_stocks(limit=150):
+    """備用方案：取得常見的台灣股票清單"""
+    popular_stocks_data = {
+        "2330": "台積電",
+        "2317": "鴻海",
+        "2454": "聯發科",
+        "2412": "中華電",
+        "2308": "台達電",
+        "2881": "富邦金",
+        "2882": "國泰金",
+        "2891": "中信金",
+        "2892": "第一金",
+        "2887": "台新金",
+        "2885": "元大金",
+        "1303": "台塑",
+        "1301": "台塑化",
+        "2409": "友達",
+        "2435": "奇力新",
+        "3711": "日月光",
+        "2498": "宏達電",
+        "2357": "瑞昱",
+        "2382": "廣達",
+        "2880": "華南金",
+        "2301": "光磊",
+        "2327": "微星",
+        "2355": "華碩",
+        "2379": "瑞昱",
+        "2390": "互盛",
+        "2408": "南科",
+        "2411": "高通",
+        "2420": "新磊",
+        "2425": "互盛",
+        "2441": "超豐",
+        "2448": "晶體",
+        "2451": "創意",
+        "2458": "義隆",
+        "2474": "緯穎",
+        "2492": "華新科",
+        "2501": "國巨",
+        "2535": "宏普",
+        "2542": "興勤",
+        "2603": "長榮",
+        "2609": "陽明",
+        "2615": "萬海",
+        "2618": "浩鼎",
+        "2633": "台灣高鐵",
+        "2701": "南港",
+        "2702": "華碩",
+        "2801": "彩晶",
+        "2823": "中環",
+        "2826": "交通銀行",
+        "2832": "台產",
+        "2833": "台險",
+        "2834": "臺灣銀行",
+        "2836": "和泰",
+        "2845": "遠傳",
+        "2847": "台塑",
+        "2849": "首信",
+        "2850": "世界",
+        "2851": "中信",
+        "2852": "國泰",
+        "2880": "華南金",
+        "2881": "富邦金",
+        "2882": "國泰金",
+        "2883": "開發金",
+        "2884": "玉山金",
+        "2885": "元大金",
+        "2886": "兆豐金",
+        "2887": "台新金",
+        "2888": "新光金",
+        "2889": "國票金",
+        "2890": "永豐金",
+        "2891": "中信金",
+        "2892": "第一金",
+        "3008": "大立光",
+        "3017": "奇美",
+        "3019": "亞光",
+        "3034": "聯詠",
+        "3037": "欣興",
+        "3045": "尖點",
+        "3047": "銘異",
+        "3050": "鈺寶科",
+        "3054": "立萬歲",
+        "3055": "蔚華科",
+        "3057": "喜鴻",
+        "3064": "銘異",
+        "3066": "瑞磁",
+        "3078": "僑威",
+        "3105": "正達",
+        "3149": "陽光",
+        "3229": "晶鑫",
+        "3231": "緯創",
+        "3289": "宏科",
+        "3437": "榮瑋",
+        "3443": "創意",
+        "3501": "鑫禾",
+        "3533": "嘉澤",
+        "3545": "同欣電",
+        "3557": "嘉澤",
+        "3579": "尖點",
+        "3682": "亞光",
+        "3711": "日月光",
+        "3713": "力旺",
+        "3714": "富采",
+        "3721": "磊晶",
+        "3722": "台積電",
+        "3764": "老虎",
+        "4904": "遠傳",
+        "4938": "和泰",
+        "5269": "祥碩",
+        "5521": "工業技術研究院",
+        "5607": "遠端",
+        "5608": "顥天",
+        "5854": "愛普",
+        "6005": "群益證",
+        "6024": "群益期",
+        "6066": "王磊",
+        "6116": "相紙",
+        "6121": "新普",
+        "6125": "瑞磁",
+        "6147": "力晶",
+        "6176": "瑞昱",
+        "6239": "力積電",
+        "6269": "台郡",
+        "6415": "矽格",
+        "6442": "光磊",
+        "6505": "台塑化",
+        "6525": "捷敏",
+        "6669": "緯軟",
+        "8016": "矽創",
+        "8028": "鉅祥",
+        "8081": "致新",
+        "8367": "光寶",
+        "8454": "富邦媒",
+        "9910": "豐泰",
+        "9914": "美利達",
+        "9917": "中美矽晶",
+        "9921": "巨大",
+        "9926": "新光紡",
+        "9927": "中視",
+        "9928": "中視",
+        "9929": "華碩",
+        "9933": "中華電",
+        "9938": "百和",
+        "9941": "裕融",
+        "9942": "茂迪",
+        "9945": "潤泰全",
+        "9950": "股神",
+    }
+
+    stocks = [{"id": stock_id, "name": name} for stock_id, name in popular_stocks_data.items()]
+    return stocks[:limit]
+
+
+def fetch_stock_history(stock_id, days=30):
+    """抓取股票近 N 個交易日的歷史價格資料"""
+    months = get_month_strings(3)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+    all_rows = []
+
+    for month in reversed(months):
+        params = {
+            "response": "json",
+            "date": month,
+            "stockNo": stock_id,
+        }
+        try:
+            response = requests.get(STOCK_DAY_API, params=params, headers=headers, timeout=15)
+            response.raise_for_status()
+            payload = response.json()
+            if payload.get("stat") != "OK":
+                continue
+
+            rows = payload.get("data", [])
+            if rows:
+                all_rows.extend(rows)
+        except Exception:
+            continue
+
+    if not all_rows:
+        return []
+
+    history = []
+    for row in all_rows:
+        if len(row) < 7:
+            continue
+
+        close_price = parse_float(row[6])
+        if close_price <= 0:
+            continue
+
+        history.append({
+            "date": row[0],
+            "volume": parse_int(row[1]),
+            "open": parse_float(row[3]),
+            "high": parse_float(row[4]),
+            "low": parse_float(row[5]),
+            "close": close_price,
+            "change": str(row[7]).strip(),
+        })
+
+    history.sort(key=lambda x: x["date"])
+    return history[-days:]
+
+
+def fetch_latest_price(stock_id):
+    """抓取單一股票的今日收盤價和漲跌幅"""
+    history = fetch_stock_history(stock_id, days=30)
+    if not history:
+        return None
+
+    latest = history[-1]
+    close_price = f"{latest['close']:.2f}"
+    price_change = latest["change"]
+
+    try:
+        change_float = float(str(price_change).replace(',', '').replace('+', '').strip())
+    except ValueError:
+        change_float = 0.0
+
+    return {
+        "stock_id": stock_id,
+        "stock_name": "",
+        "date": latest["date"],
+        "close": close_price,
+        "change": price_change,
+        "change_float": change_float,
+        "history": history,
+    }
