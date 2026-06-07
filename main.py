@@ -1,5 +1,6 @@
 import os
 import sys
+import datetime
 from pathlib import Path
 
 try:
@@ -15,6 +16,7 @@ from ai_analysis import analyze_with_ai
 from email_sender import send_email_notification
 from report_generator import generate_html_report
 from vercel_deploy import deploy_to_vercel, send_telegram_link
+from backtester import record_buy_signals, evaluate_buy_signal_accuracy
 
 
 def print_stock_list(stocks):
@@ -77,6 +79,20 @@ def main():
 
         buy_candidates = [item for item in results if item.get("buy_signal")]
 
+        # ── 記錄今日技術買入訊號（供日後計算 3 天/5 天後報酬率）──
+        try:
+            record_buy_signals(datetime.date.today().isoformat(), buy_candidates)
+        except Exception as exc:
+            print(f"⚠️ 記錄買入訊號失敗：{exc}")
+
+        # ── 計算歷史訊號準確率 ───────────────────────
+        print("\n正在計算歷史訊號準確率...")
+        try:
+            signal_accuracy = evaluate_buy_signal_accuracy()
+        except Exception as exc:
+            print(f"⚠️ 計算歷史訊號準確率失敗：{exc}")
+            signal_accuracy = None
+
         print("\n正在使用 AI 進行分析...")
         analysis = analyze_with_ai(results)
         if analysis:
@@ -112,6 +128,7 @@ def main():
             analysis_text=analysis,
             recommendations=buy_candidates,
             taiex=taiex,
+            signal_accuracy=signal_accuracy,
         )
 
         # ── 部署到 Vercel ────────────────────────────

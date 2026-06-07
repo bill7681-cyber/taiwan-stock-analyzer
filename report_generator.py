@@ -1,6 +1,36 @@
 import datetime
 import html
+import os
 import re
+
+import analyzer
+
+REPORTS_DIR = os.path.join(os.path.dirname(__file__), "public", "reports")
+ARCHIVE_NAV_DAYS = 30
+
+
+def _build_archive_nav():
+    """掃描 public/reports/ 目錄，列出最近 30 天內有報告的日期連結，
+    格式如：← 2026-06-06 ｜ 2026-06-05 ｜ 2026-06-04 ..."""
+    try:
+        filenames = os.listdir(REPORTS_DIR)
+    except OSError:
+        return ""
+
+    dates = []
+    for name in filenames:
+        match = re.match(r'^(\d{4}-\d{2}-\d{2})\.html$', name)
+        if match:
+            dates.append(match.group(1))
+
+    if not dates:
+        return ""
+
+    dates.sort(reverse=True)
+    dates = dates[:ARCHIVE_NAV_DAYS]
+
+    links = " ｜ ".join(f'<a href="/reports/{d}">{d}</a>' for d in dates)
+    return f'<nav class="report-nav">📅 歷史報告：← {links}</nav>'
 
 
 def _markdown_to_html(markdown_text):
@@ -89,11 +119,97 @@ def _format_volume_lots(stock):
         return ""
 
 
-def generate_html_report(results, analysis_text=None, recommendations=None, taiex=None):
+def _format_buy_reason(stock):
+    """組合買入訊號觸發原因說明，例如：
+    📌 KD黃金交叉(K=32→45) + 站上5日均線 + 成交量增加1.3倍
+    優先採用 results 裡的 buy_reason；若為空則依技術指標重新組合出觸發條件說明。"""
+    reason = str(stock.get("buy_reason", "") or "").strip()
+    if reason:
+        return f"📌 {reason}"
+
+    history = stock.get("history") or []
+    parts = []
+
+    kd_k = stock.get("kd_k")
+    kd_d = stock.get("kd_d")
+    if kd_k is not None and kd_d is not None and len(history) >= 2:
+        try:
+            kd_list = analyzer.calculate_kd(history)
+            prev_kd = kd_list[-2]
+            if prev_kd["k"] <= prev_kd["d"] and kd_k > kd_d:
+                parts.append(f"KD黃金交叉(K={prev_kd['k']:.0f}→{kd_k:.0f})")
+        except Exception:
+            pass
+
+    try:
+        ma5 = stock.get("ma5")
+        if ma5 is not None and float(stock.get("close", 0)) > ma5:
+            parts.append("站上5日均線")
+    except (TypeError, ValueError):
+        pass
+
+    if len(history) >= 6:
+        last_volume = history[-1]["volume"]
+        recent_volumes = [item["volume"] for item in history[-6:-1]]
+        avg_vol5 = sum(recent_volumes) / len(recent_volumes) if recent_volumes else 0
+        if avg_vol5 > 0 and last_volume > avg_vol5 * 1.2:
+            parts.append(f"成交量增加{last_volume / avg_vol5:.1f}倍")
+
+    if not parts:
+        return ""
+    return "📌 " + " + ".join(parts)
+
+
+def _build_signal_accuracy_block(signal_accuracy):
+    """將買入訊號歷史準確率資料（來自 backtester.evaluate_buy_signal_accuracy）轉成 HTML 表格。
+    顯示推薦當日收盤價與 N 個交易日後收盤價的漲跌幅統計（勝率、平均報酬率）。"""
+    if not signal_accuracy:
+        return '<p style="color:#666">📊 歷史訊號準確率累積中，需要更多資料。</p>'
+
+    rows = ""
+    for horizon in sorted(signal_accuracy.keys()):
+        stat = signal_accuracy.get(horizon) or {}
+        total = stat.get("total", 0)
+        wins = stat.get("wins", 0)
+        win_rate = stat.get("win_rate")
+        avg_return = stat.get("avg_return")
+
+        if total > 0 and win_rate is not None and avg_return is not None:
+            win_rate_color = "#4ade80" if win_rate >= 50 else "#f87171"
+            avg_return_color = "#4ade80" if avg_return >= 0 else "#f87171"
+            rows += f"""
+            <tr>
+              <td>{horizon} 天後</td>
+              <td>{total}</td>
+              <td>{wins}</td>
+              <td style="color:{win_rate_color};font-weight:600">{win_rate:.1f}%</td>
+              <td style="color:{avg_return_color};font-weight:600">{avg_return:+.2f}%</td>
+            </tr>"""
+        else:
+            rows += f"""
+            <tr>
+              <td>{horizon} 天後</td>
+              <td colspan="4" style="text-align:center;color:#666">累積中，需要更多資料</td>
+            </tr>"""
+
+    return f"""
+      <table>
+        <thead>
+          <tr><th>追蹤天數</th><th>樣本數</th><th>上漲筆數</th><th>勝率</th><th>平均報酬率</th></tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </table>
+      <p style="margin-top:12px;font-size:0.8rem;color:#6b7280">📌 統計基礎：技術買入訊號觸發當日收盤價，與 N 個交易日後收盤價的漲跌幅比較（樣本持續累積中）</p>"""
+
+
+def generate_html_report(results, analysis_text=None, recommendations=None, taiex=None, signal_accuracy=None):
     """把每日分析結果轉成 HTML 報告"""
     today = datetime.date.today()
     date_str = today.strftime("%Y年%m月%d日")
     date_id = today.strftime("%Y-%m-%d")
+
+    archive_nav = _build_archive_nav()
+    signal_accuracy_block = _build_signal_accuracy_block(signal_accuracy)
 
     # 加權指數
     if taiex:
@@ -143,15 +259,23 @@ def generate_html_report(results, analysis_text=None, recommendations=None, taie
     rec_rows = ""
     if recs:
         for s in recs[:10]:
+            reason_text = _format_buy_reason(s)
+            reason_row = ""
+            if reason_text:
+                reason_row = f"""
+            <tr>
+              <td colspan="5" style="border-top:none;padding-top:0;color:#94a3b8;font-size:0.82rem">{reason_text}</td>
+            </tr>"""
             rec_rows += f"""
             <tr>
               <td><strong>{s['stock_id']}</strong></td>
               <td>{s.get('stock_name','')}</td>
               <td>{s.get('close','')}</td>
               <td>{_format_change_with_pct(s)}</td>
-            </tr>"""
+              <td>{_format_volume_lots(s)}</td>
+            </tr>{reason_row}"""
     else:
-        rec_rows = '<tr><td colspan="4" style="text-align:center;color:#666">今日無明確買入訊號</td></tr>'
+        rec_rows = '<tr><td colspan="5" style="text-align:center;color:#666">今日無明確買入訊號</td></tr>'
 
     # AI 分析文字（將 Markdown 語法轉換成 HTML）
     if analysis_text:
@@ -185,6 +309,18 @@ def generate_html_report(results, analysis_text=None, recommendations=None, taie
     }}
     header h1 {{ font-size: 1.6rem; font-weight: 700; color: #fff; }}
     header p {{ color: #94a3b8; font-size: 0.9rem; margin-top: 4px; }}
+    .report-nav {{
+      margin-top: 14px;
+      font-size: 0.8rem;
+      color: #6b7280;
+      line-height: 1.8;
+    }}
+    .report-nav a {{
+      color: #93c5fd;
+      text-decoration: none;
+      margin: 0 2px;
+    }}
+    .report-nav a:hover {{ text-decoration: underline; }}
     .container {{ max-width: 960px; margin: 0 auto; padding: 32px 20px; }}
     .stats-grid {{
       display: grid;
@@ -266,6 +402,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None, taie
   <header>
     <h1>📊 台股每日分析報告</h1>
     <p>{date_str} ｜ 台股市值前 150 大自動分析</p>
+    {archive_nav}
   </header>
 
   <div class="container">
@@ -316,10 +453,15 @@ def generate_html_report(results, analysis_text=None, recommendations=None, taie
       <h2>💡 技術買入訊號</h2>
       <table>
         <thead>
-          <tr><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th></tr>
+          <tr><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th><th>成交量(張)</th></tr>
         </thead>
         <tbody>{rec_rows}</tbody>
       </table>
+    </section>
+
+    <section>
+      <h2>🎯 歷史訊號準確率</h2>
+      {signal_accuracy_block}
     </section>
 
     <section>

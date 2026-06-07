@@ -14,6 +14,140 @@ def _history_path():
     return DATA_DIR / "ai_recommendations_history.json"
 
 
+def _buy_signal_history_path():
+    return DATA_DIR / "buy_signal_history.json"
+
+
+def record_buy_signals(date, stocks):
+    """記錄當日觸發技術買入訊號的個股，及推薦當下的收盤價，供日後計算報酬率。
+    stocks: list of dict，至少需包含 stock_id（或 id）、close，可選 stock_name。
+    若同一天已有紀錄則覆蓋，避免重複累積。"""
+    path = _buy_signal_history_path()
+    if path.exists():
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = []
+    else:
+        data = []
+
+    date_str = str(date)
+    data = [e for e in data if e.get("date") != date_str]
+
+    entry_stocks = []
+    for s in stocks:
+        stock_id = s.get("stock_id") or s.get("id")
+        if not stock_id:
+            continue
+        try:
+            close = float(str(s.get("close", "")).replace(",", "").strip())
+        except (TypeError, ValueError):
+            continue
+        if close <= 0:
+            continue
+        entry_stocks.append({
+            "stock_id": stock_id,
+            "stock_name": s.get("stock_name", ""),
+            "close": close,
+        })
+
+    if not entry_stocks:
+        return
+
+    data.append({"date": date_str, "stocks": entry_stocks})
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def evaluate_buy_signal_accuracy(horizons=None):
+    """讀取歷史買入訊號紀錄，計算推薦後 N 天（預設 3、5 天）的報酬率與勝率。
+    回傳格式：{horizon: {total, wins, win_rate, avg_return, details:[...]}}
+    報酬率 = (N 天後收盤價 - 推薦當日收盤價) / 推薦當日收盤價 * 100。"""
+    if horizons is None:
+        horizons = [3, 5]
+
+    path = _buy_signal_history_path()
+    if not path.exists():
+        return {h: {"total": 0, "wins": 0, "win_rate": None, "avg_return": None,
+                     "note": "累積中，需要更多資料"} for h in horizons}
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            history = json.load(f)
+    except Exception:
+        history = []
+
+    today = datetime.date.today()
+    results = {}
+
+    for h in horizons:
+        total = 0
+        wins = 0
+        return_sum = 0.0
+        details = []
+        target_date = (today - datetime.timedelta(days=h)).isoformat()
+
+        entries = [e for e in history if e.get("date") == target_date]
+        for entry in entries:
+            for s in entry.get("stocks", []):
+                sid = s.get("stock_id")
+                close_then = s.get("close")
+                if not sid or not close_then:
+                    continue
+                total += 1
+                try:
+                    hist = fetch_stock_history(sid, days=h + 10)
+                    idx = next((i for i, it in enumerate(hist)
+                                if it.get("date") and it.get("date").endswith(target_date[-5:])), None)
+                    if idx is None:
+                        idx = next((i for i, it in enumerate(hist)
+                                    if it.get("date") and target_date in it.get("date")), None)
+                    if idx is None:
+                        details.append({"stock": sid, "result": "no_data"})
+                        continue
+
+                    future_idx = idx + h
+                    if future_idx >= len(hist):
+                        details.append({"stock": sid, "result": "no_future_data"})
+                        continue
+
+                    close_now = hist[future_idx]["close"]
+                    return_pct = (close_now - close_then) / close_then * 100
+                    win = return_pct > 0
+                    if win:
+                        wins += 1
+                    return_sum += return_pct
+                    details.append({
+                        "stock": sid,
+                        "stock_name": s.get("stock_name", ""),
+                        "from": close_then,
+                        "to": close_now,
+                        "return_pct": return_pct,
+                        "win": win,
+                    })
+                except Exception:
+                    details.append({"stock": sid, "result": "error"})
+
+        win_rate = (wins / total * 100) if total > 0 else None
+        avg_return = (return_sum / total) if total > 0 else None
+        results[h] = {
+            "total": total,
+            "wins": wins,
+            "win_rate": win_rate,
+            "avg_return": avg_return,
+            "details": details,
+        }
+
+    overall_total = sum(results[h]["total"] for h in horizons)
+    if overall_total == 0:
+        for h in horizons:
+            results[h]["note"] = "累積中，需要更多資料"
+
+    return results
+
+
 def save_recommendation(date, stocks):
     """儲存 AI 當日推薦清單（date: ISO YYYY-MM-DD, stocks: list of stock ids）"""
     path = _history_path()

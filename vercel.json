@@ -6,5 +6,8 @@
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/reports/:date", "destination": "/reports/:date.html" }
   ]
 }

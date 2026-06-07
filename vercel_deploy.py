@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import datetime
 import requests
@@ -7,6 +8,34 @@ import requests
 VERCEL_URL = "https://taiwan-stock-analyzer-sigma.vercel.app"
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8920848566:AAFRjK2TX2ImV6-mZOLROyQSsQY3jT3inak")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8238969400")
+
+REPORT_RETENTION_DAYS = 90
+
+
+def _cleanup_old_reports(archive_dir, retention_days=REPORT_RETENTION_DAYS):
+    """刪除超過保留天數（預設 90 天）的歷史報告檔案"""
+    cutoff = datetime.date.today() - datetime.timedelta(days=retention_days)
+
+    try:
+        filenames = os.listdir(archive_dir)
+    except OSError:
+        return
+
+    for name in filenames:
+        match = re.match(r'^(\d{4}-\d{2}-\d{2})\.html$', name)
+        if not match:
+            continue
+        try:
+            file_date = datetime.datetime.strptime(match.group(1), "%Y-%m-%d").date()
+        except ValueError:
+            continue
+
+        if file_date < cutoff:
+            try:
+                os.remove(os.path.join(archive_dir, name))
+                print(f"🗑️ 已刪除過期歷史報告：{name}")
+            except OSError as exc:
+                print(f"⚠️ 刪除過期歷史報告失敗 {name}：{exc}")
 
 
 def deploy_to_vercel(html_content: str) -> bool:
@@ -52,6 +81,8 @@ def deploy_to_vercel(html_content: str) -> bool:
                 return False
             print("✓ 已還原暫存的修改（git stash pop）")
 
+        date_str = datetime.date.today().strftime("%Y-%m-%d")
+
         output_path = os.path.join(repo_dir, "public", "index.html")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -59,10 +90,20 @@ def deploy_to_vercel(html_content: str) -> bool:
             f.write(html_content)
         print(f"✓ 報告已寫入 {output_path}")
 
-        date_str = datetime.date.today().strftime("%Y-%m-%d")
+        # 同時寫入歷史存檔 public/reports/YYYY-MM-DD.html，並清理過期報告
+        archive_dir = os.path.join(repo_dir, "public", "reports")
+        os.makedirs(archive_dir, exist_ok=True)
+
+        archive_path = os.path.join(archive_dir, f"{date_str}.html")
+        with open(archive_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        print(f"✓ 歷史報告已存檔至 {archive_path}")
+
+        _cleanup_old_reports(archive_dir)
 
         cmds = [
             ["git", "add", "public/index.html"],
+            ["git", "add", "-A", "public/reports"],
             ["git", "commit", "-m", f"report: {date_str}"],
         ]
         for cmd in cmds:
