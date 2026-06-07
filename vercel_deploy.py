@@ -12,6 +12,18 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8238969400")
 REPORT_RETENTION_DAYS = 90
 
 
+def _inject_version_meta(html_content):
+    """在 HTML 的 <head> 加入版本號 meta tag（含部署時間戳記，例如
+    <meta name="version" content="2026-06-07-1630">），讓每次部署的 HTML
+    內容都不同，藉此強制 CDN 更新快取（不依賴 Vercel API / VERCEL_TOKEN）。"""
+    version = datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
+    meta_tag = f'<meta name="version" content="{version}">'
+
+    if "<head>" in html_content:
+        return html_content.replace("<head>", f"<head>\n  {meta_tag}", 1)
+    return meta_tag + "\n" + html_content
+
+
 def _cleanup_old_reports(archive_dir, retention_days=REPORT_RETENTION_DAYS):
     """刪除超過保留天數（預設 90 天）的歷史報告檔案"""
     cutoff = datetime.date.today() - datetime.timedelta(days=retention_days)
@@ -82,6 +94,10 @@ def deploy_to_vercel(html_content: str) -> bool:
             print("✓ 已還原暫存的修改（git stash pop）")
 
         date_str = datetime.date.today().strftime("%Y-%m-%d")
+
+        # 在 <head> 加入版本號 meta tag，讓每次部署的 HTML 內容都不同，
+        # 強制 CDN 更新快取（搭配 vercel.json 的 Cache-Control no-store）
+        html_content = _inject_version_meta(html_content)
 
         output_path = os.path.join(repo_dir, "public", "index.html")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
