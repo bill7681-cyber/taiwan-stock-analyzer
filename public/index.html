@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>台股分析報告 2026年06月07日</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      background: #0a0a0f;
+      color: #e2e8f0;
+      line-height: 1.6;
+    }
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 1px solid #1e3a5f;
+      padding: 28px 32px;
+    }
+    header h1 { font-size: 1.6rem; font-weight: 700; color: #fff; }
+    header p { color: #94a3b8; font-size: 0.9rem; margin-top: 4px; }
+    .container { max-width: 960px; margin: 0 auto; padding: 32px 20px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stat-card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-card .num { font-size: 2rem; font-weight: 700; }
+    .stat-card .label { font-size: 0.82rem; color: #6b7280; margin-top: 4px; }
+    .up { color: #4ade80; }
+    .down { color: #f87171; }
+    .flat { color: #94a3b8; }
+    section { margin-bottom: 36px; }
+    section h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      border-left: 3px solid #3b82f6;
+      padding-left: 12px;
+      margin-bottom: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #111827;
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 0.88rem;
+    }
+    thead { background: #1f2937; }
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      color: #9ca3af;
+      font-weight: 500;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+    }
+    td { padding: 12px 16px; border-top: 1px solid #1f2937; }
+    tbody tr:hover { background: #1a2234; }
+    .ai-box {
+      background: #0f172a;
+      border: 1px solid #1e3a5f;
+      border-radius: 12px;
+      padding: 24px;
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: #cbd5e1;
+    }
+    .ai-box p { margin-bottom: 10px; }
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: #374151;
+      font-size: 0.8rem;
+      border-top: 1px solid #1f2937;
+    }
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      header { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📊 台股每日分析報告</h1>
+    <p>2026年06月07日 ｜ 台股市值前 150 大自動分析</p>
+  </header>
+
+  <div class="container">
+
+    <section>
+      <h2>市場總覽</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="num">150</div>
+          <div class="label">分析股票數</div>
+        </div>
+        <div class="stat-card">
+          <div class="num up">41</div>
+          <div class="label">上漲</div>
+        </div>
+        <div class="stat-card">
+          <div class="num down">96</div>
+          <div class="label">下跌</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>🚀 漲幅前 5 名</h2>
+      <table>
+        <thead>
+          <tr><th>#</th><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th></tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>1590</strong></td>
+          <td>亞德客-KY</td>
+          <td>1320.00</td>
+          <td style="color:#4ade80;font-weight:600">+10.00</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>1342</strong></td>
+          <td>八貫</td>
+          <td>104.00</td>
+          <td style="color:#4ade80;font-weight:600">+3.50</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>1215</strong></td>
+          <td>卜蜂</td>
+          <td>119.00</td>
+          <td style="color:#4ade80;font-weight:600">+3.00</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>1231</strong></td>
+          <td>聯華食</td>
+          <td>89.00</td>
+          <td style="color:#4ade80;font-weight:600">+2.10</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>1533</strong></td>
+          <td>車王電</td>
+          <td>39.90</td>
+          <td style="color:#4ade80;font-weight:600">+1.60</td>
+        </tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>📉 跌幅最深 5 名</h2>
+      <table>
+        <thead>
+          <tr><th>#</th><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th></tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>1513</strong></td>
+          <td>中興電</td>
+          <td>170.50</td>
+          <td style="color:#f87171;font-weight:600">-16.50</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>1560</strong></td>
+          <td>中砂</td>
+          <td>698.00</td>
+          <td style="color:#f87171;font-weight:600">-18.00</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>1256</strong></td>
+          <td>鮮活果汁-KY</td>
+          <td>181.00</td>
+          <td style="color:#f87171;font-weight:600">-19.00</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>1503</strong></td>
+          <td>士電</td>
+          <td>241.50</td>
+          <td style="color:#f87171;font-weight:600">-26.50</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>1519</strong></td>
+          <td>華城</td>
+          <td>851.00</td>
+          <td style="color:#f87171;font-weight:600">-59.00</td>
+        </tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>💡 技術買入訊號</h2>
+      <table>
+        <thead>
+          <tr><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+              <td><strong>1231</strong></td>
+              <td>聯華食</td>
+              <td>89.00</td>
+              <td>+2.10</td>
+            </tr>
+            <tr>
+              <td><strong>1533</strong></td>
+              <td>車王電</td>
+              <td>39.90</td>
+              <td>+1.60</td>
+            </tr>
+            <tr>
+              <td><strong>1515</strong></td>
+              <td>力山</td>
+              <td>26.30</td>
+              <td>+1.00</td>
+            </tr>
+            <tr>
+              <td><strong>1414</strong></td>
+              <td>東和</td>
+              <td>16.90</td>
+              <td>+0.80</td>
+            </tr>
+            <tr>
+              <td><strong>1321</strong></td>
+              <td>大洋</td>
+              <td>29.70</td>
+              <td>+0.75</td>
+            </tr>
+            <tr>
+              <td><strong>1456</strong></td>
+              <td>怡華</td>
+              <td>14.45</td>
+              <td>+0.60</td>
+            </tr>
+            <tr>
+              <td><strong>1525</strong></td>
+              <td>江申</td>
+              <td>66.50</td>
+              <td>+0.60</td>
+            </tr>
+            <tr>
+              <td><strong>1598</strong></td>
+              <td>岱宇</td>
+              <td>21.30</td>
+              <td>+0.45</td>
+            </tr>
+            <tr>
+              <td><strong>1438</strong></td>
+              <td>三地開發</td>
+              <td>20.60</td>
+              <td>+0.30</td>
+            </tr>
+            <tr>
+              <td><strong>1587</strong></td>
+              <td>吉茂</td>
+              <td>30.30</td>
+              <td>+0.25</td>
+            </tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>🤖 AI 市場分析</h2>
+      <div class="ai-box"><p># 台股前150大個股市場分析報告</p><br><p>## 一、今日大盤趨勢分析</p><br><p>### 市場走勢概況</p><p>今日台股呈現**明顯弱勢格局**，統計數據顯示：</p><p>- **下跌股票占比64.0%**，上漲股票僅27.3%，顯示賣壓沉重</p><p>- **平均跌幅-1.33%**，市場整體氛圍偏空</p><p>- 漲跌比例懸殊（41:96），反映市場信心不足</p><br><p>### 產業輪動特徵</p><p>**強勢族群：**</p><p>- **工業機械股**：亞德客-KY單日大漲10元領漲，車王電、東陽、力山、程泰等傳產機械股同步走強</p><p>- **民生消費股**：八貫、卜蜂、聯華食等食品股逆勢上揚，展現防禦性特質</p><br><p>**弱勢族群：**</p><p>- **重電設備股慘遭重挫**：華城暴跌59元(-6.48%)、士電跌26.5元、中興電跌16.5元</p><p>- **半導體設備股**：中砂大跌18元，顯示科技類股承壓</p><br><p>### 市場情緒判讀</p><p>當前市場呈現典型的**風險規避情緒**，資金明顯從高價成長股撤出，轉向防禦性的傳產民生股。重電股集體重挫可能與產業利空、財報疑慮或政策面消息有關，需密切關注後續發展。</p><br><p>---</p><br><p>## 二、推薦買入個股</p><br><p>### ⚠️ 重要提醒</p><p>**今日法人整體偏空，建議觀望**</p><br><p>根據數據顯示，所有漲幅前段班個股均「未取得法人資料」，無法確認法人買超狀況。在缺乏籌碼面支撐且市場整體下跌64%的情況下，**不符合推薦條件**。</p><br><p>**建議策略：**</p><p>- 暫時保持觀望，等待市場方向明朗</p><p>- 避免追高今日強勢股（缺乏籌碼確認）</p><p>- 關注重電股是否出現落底訊號</p><br><p>---</p><br><p>## 三、觀察名單</p><br><p>### 1. **1590 亞德客-KY** </p><p>- **觀察理由**：單日大漲10元（+0.76%），展現強勁動能</p><p>- **待確認事項**：法人籌碼動向、成交量是否持續放大、是否有訂單或業績利多</p><p>- **追蹤重點**：若能站穩1300元且法人回補，可列入候選</p><br><p>### 2. **1519 華城**</p><p>- **觀察理由**：大跌後股價來到851元，可能出現技術性反彈機會</p><p>- **待確認事項**：暴跌原因（是否為財報、訂單或產業面利空）</p><p>- **追蹤重點**：若為超跌且基本面無虞，可等待止跌訊號進場</p><br><p>---</p><br><p>## 四、法人籌碼與新聞影響評估</p><br><p>### 籌碼面分析</p><p>**資料完整性嚴重不足：**</p><p>- 漲幅前10名及跌幅前5名股票均「未取得法人資料」</p><p>- 無法判斷外資、投信、自營商的進出動向</p><p>- **此為本次分析最大限制**，建議投資人自行查詢三大法人買賣超明細</p><br><p>### 新聞面影響</p><p>**資訊真空狀態：**</p><p>- 所有重點個股均「無近期新聞」</p><p>- 無法透過消息面解讀股價異動原因</p><p>- 重電股集體重挫尤其需要新聞面佐證</p><br><p>### 推測性分析</p><p>**可能的市場驅動因素：**</p><p>1. **重電股暴跌**：可能與綠能政策調整、國際訂單變數或財報不如預期有關</p><p>2. **機械股走強**：可能受惠於製造業回溫或出口數據改善</p><p>3. **食品股抗跌**：通膨環境下民生必需品具防禦價值</p><br><p>---</p><br><p>## 五、操作建議與風險提醒</p><br><p>### 短期操作策略（1-3個交易日）</p><br><p>#### ✅ 建議作為</p><p>1. **保持觀望為主**</p><p>   - 市場下跌面達64%，不宜逆勢搶反彈</p><p>   - 等待法人籌碼數據明朗後再行動</p><br><p>2. **設定觀察清單**</p><p>   - 追蹤亞德客-KY是否持續強勢</p><p>   - 關注重電股是否出現止跌訊號</p><br><p>3. **防禦性配置**</p><p>   - 若必須持股，可考慮食品、民生類股</p><p>   - 八貫、卜蜂、聯華食展現相對抗跌性</p><br><p>#### ❌ 避免行為</p><p>1. **切勿盲目追高**：亞德客雖大漲但缺乏籌碼確認</p><p>2. **避免接刀重電股**：華城、士電、中興電跌勢未止</p><p>3. **不宜重押單一產業**：市場輪動快速，分散風險為上</p><br><p>---</p><br><p>### 中長期觀點</p><br><p>#### 關鍵觀察指標</p><p>1. **法人籌碼轉向**：外資是否停止賣超</p><p>2. **產業消息明朗**：重電股利空是否為一次性事件</p><p>3. **技術面支撐**：大盤是否守住季線或半年線</p><br><p>#### 風險因子</p><p>- **總體經濟**：留意聯準會政策、美股走勢</p><p>- **地緣政治**：兩岸關係、國際局勢變化</p><p>- **產業景氣**：AI熱潮是否降溫、傳產復甦力道</p><br><p>---</p><br><p>## 📌 總結重點</p><br><p>| 項目 | 狀態 | 建議 |</p><p>|------|------|------|</p><p>| 市場情緒 | 🔴 偏空 | 觀望為主 |</p><p>| 法人籌碼 | ⚪ 資料不足 | 待確認 |</p><p>| 推薦個股 | ⚪ 無符合條件 | 暫不進場 |</p><p>| 操作方向 | 🟡 防禦 | 控制倉位 |</p><br><p>**最重要的一句話：在資訊不完整、市場偏空的情況下，「不做錯」比「做對」更重要，耐心等待更好的進場時機。**</p><br><p>---</p><br><p>*本分析僅供參考，不構成投資建議。投資人應自行判斷並承擔投資風險。*</p></div>
+    </section>
+
+  </div>
+
+  <footer>
+    <p>由 taiwan-stock-analyzer 自動生成 ｜ 2026年06月07日 16:30 更新</p>
+  </footer>
+</body>
+</html>
