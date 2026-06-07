@@ -80,11 +80,32 @@ def _format_change_with_pct(stock):
         return change_str
 
 
-def generate_html_report(results, analysis_text=None, recommendations=None):
+def _format_volume_lots(stock):
+    """將成交量從股數轉換成張數（1張=1000股），並加上千分位逗號。"""
+    try:
+        volume = float(stock.get("volume", 0) or 0)
+        return f"{volume / 1000:,.0f}"
+    except (TypeError, ValueError):
+        return ""
+
+
+def generate_html_report(results, analysis_text=None, recommendations=None, taiex=None):
     """把每日分析結果轉成 HTML 報告"""
     today = datetime.date.today()
     date_str = today.strftime("%Y年%m月%d日")
     date_id = today.strftime("%Y-%m-%d")
+
+    # 加權指數
+    if taiex:
+        taiex_change = float(taiex.get("change", 0) or 0)
+        taiex_pct = float(taiex.get("change_pct", 0) or 0)
+        taiex_css = "up" if taiex_change > 0 else ("down" if taiex_change < 0 else "flat")
+        taiex_points = f"{float(taiex.get('points', 0) or 0):,.2f}"
+        taiex_sub = f"{taiex_change:+,.2f}（{taiex_pct:+.2f}%）"
+    else:
+        taiex_css = "flat"
+        taiex_points = "—"
+        taiex_sub = "今日無加權指數資料"
 
     top5 = results[:5]
     bottom5 = results[-5:]
@@ -101,6 +122,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
           <td>{s.get('stock_name','')}</td>
           <td>{s.get('close','')}</td>
           <td style="color:{color};font-weight:600">{_format_change_with_pct(s)}</td>
+          <td>{_format_volume_lots(s)}</td>
         </tr>"""
 
     # 跌幅最深5列
@@ -114,6 +136,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
           <td>{s.get('stock_name','')}</td>
           <td>{s.get('close','')}</td>
           <td style="color:{color};font-weight:600">{_format_change_with_pct(s)}</td>
+          <td>{_format_volume_lots(s)}</td>
         </tr>"""
 
     # 買入訊號
@@ -165,7 +188,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
     .container {{ max-width: 960px; margin: 0 auto; padding: 32px 20px; }}
     .stats-grid {{
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 16px;
       margin-bottom: 32px;
     }}
@@ -251,6 +274,10 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
       <h2>市場總覽</h2>
       <div class="stats-grid">
         <div class="stat-card">
+          <div class="num {taiex_css}">{taiex_points}</div>
+          <div class="label">加權指數 {taiex_sub}</div>
+        </div>
+        <div class="stat-card">
           <div class="num">{total}</div>
           <div class="label">分析股票數</div>
         </div>
@@ -269,7 +296,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
       <h2>🚀 漲幅前 5 名</h2>
       <table>
         <thead>
-          <tr><th>#</th><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th></tr>
+          <tr><th>#</th><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th><th>成交量(張)</th></tr>
         </thead>
         <tbody>{top5_rows}</tbody>
       </table>
@@ -279,7 +306,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
       <h2>📉 跌幅最深 5 名</h2>
       <table>
         <thead>
-          <tr><th>#</th><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th></tr>
+          <tr><th>#</th><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th><th>成交量(張)</th></tr>
         </thead>
         <tbody>{bottom5_rows}</tbody>
       </table>

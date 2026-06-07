@@ -9,7 +9,7 @@ try:
 except ImportError:
     pass
 
-from fetcher import fetch_top_stocks_by_market_cap, fetch_latest_price
+from fetcher import fetch_top_stocks_by_market_cap, fetch_latest_price, fetch_taiex_index
 from analyzer import compute_technical_indicators
 from ai_analysis import analyze_with_ai
 from email_sender import send_email_notification
@@ -97,12 +97,21 @@ def main():
         #     recommendations=buy_candidates,
         # )
 
+        # ── 加權指數 ─────────────────────────────────
+        print("\n正在取得加權指數...")
+        try:
+            taiex = fetch_taiex_index()
+        except Exception as exc:
+            print(f"⚠️ 取得加權指數失敗：{exc}")
+            taiex = None
+
         # ── 生成 HTML 報告 ───────────────────────────
         print("\n正在生成 HTML 報告...")
         html = generate_html_report(
             results,
             analysis_text=analysis,
             recommendations=buy_candidates,
+            taiex=taiex,
         )
 
         # ── 部署到 Vercel ────────────────────────────

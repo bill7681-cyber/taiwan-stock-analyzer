@@ -121,7 +121,7 @@ def analyze_with_ai(stock_data):
                 }
             ],
             "temperature": 0.7,
-            "max_tokens": 2000
+            "max_tokens": 3000
         }
 
         response = requests.post(api_endpoint, json=payload, headers=headers, timeout=30)

@@ -3,6 +3,7 @@ import feedparser
 import requests
 
 STOCK_DAY_API = "https://www.twse.com.tw/exchangeReport/STOCK_DAY"
+MI_INDEX_API = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
 INSTITUTIONAL_T86_API = "https://www.twse.com.tw/rwd/zh/fund/T86"
 INSTITUTIONAL_CACHE = None
 INSTITUTIONAL_DATA_DATE = None
@@ -82,6 +83,53 @@ def fetch_top_stocks_by_market_cap(limit=150):
         print(f"警告：{exc}")
         print("將使用常見股票清單作為備用方案...")
         return fetch_popular_stocks(limit)
+
+
+def fetch_taiex_index():
+    """取得今日加權股價指數（發行量加權股價指數）的收盤點位與漲跌幅。
+    使用 TWSE MI_INDEX API（type=IND，僅取價格指數表），若當日無資料則往前回溯查詢。"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+    base_date = datetime.date.today()
+
+    for offset in range(7):
+        query_date = (base_date - datetime.timedelta(days=offset)).strftime("%Y%m%d")
+        params = {
+            "response": "json",
+            "date": query_date,
+            "type": "IND",
+        }
+
+        try:
+            response = requests.get(MI_INDEX_API, params=params, headers=headers, timeout=15)
+            response.raise_for_status()
+            payload = response.json()
+
+            if payload.get("stat") != "OK":
+                continue
+
+            for table in payload.get("tables", []):
+                for row in table.get("data", []):
+                    if not row or row[0] != "發行量加權股價指數":
+                        continue
+
+                    points = parse_float(row[1])
+                    change_points = abs(parse_float(row[3]))
+                    change_pct = parse_float(row[4])
+                    if change_pct < 0:
+                        change_points = -change_points
+
+                    return {
+                        "date": query_date,
+                        "points": points,
+                        "change": change_points,
+                        "change_pct": change_pct,
+                    }
+        except Exception:
+            continue
+
+    return None
 
 
 def fetch_popular_stocks(limit=150):
@@ -313,6 +361,7 @@ def fetch_latest_price(stock_id):
         "close": close_price,
         "change": price_change,
         "change_float": change_float,
+        "volume": latest["volume"],
         "history": history,
     }
 
