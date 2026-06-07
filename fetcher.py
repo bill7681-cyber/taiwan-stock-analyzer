@@ -33,12 +33,17 @@ def parse_float(value):
 
 
 def fetch_top_stocks_by_market_cap(limit=150):
-    """從 TWSE 取得市值前 N 大的股票清單"""
+    """取得市值前 N 大的股票清單。
+
+    TWSE 公開資料中並無提供「個股市值」欄位（T86 僅有法人買賣超、
+    BWIBBU_d 僅有股價淨值比、MI_INDEX 僅有大盤統計，皆無股本/市值），
+    因此改用「成交金額」作為市值的替代指標進行排序——
+    成交金額高的個股通常是大型權值股（如台積電、聯發科、鴻海等），
+    與市值排名高度相關。
+    """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
-
-    stocks = []
 
     try:
         api_url = "https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL"
@@ -54,16 +59,21 @@ def fetch_top_stocks_by_market_cap(limit=150):
 
         if payload.get("stat") == "OK":
             rows = payload.get("data", [])
+            candidates = []
             for row in rows:
-                if len(row) >= 2:
-                    stock_id = row[0].strip()
-                    stock_name = row[1].strip()
-                    if stock_id.isdigit() and len(stock_id) == 4 and not stock_id.startswith('0'):
-                        stocks.append({"id": stock_id, "name": stock_name})
-                        if len(stocks) >= limit:
-                            break
+                if len(row) < 4:
+                    continue
+                stock_id = row[0].strip()
+                stock_name = row[1].strip()
+                if not (stock_id.isdigit() and len(stock_id) == 4 and not stock_id.startswith('0')):
+                    continue
+                turnover = parse_float(row[3])
+                candidates.append((turnover, {"id": stock_id, "name": stock_name}))
 
-            if len(stocks) > 0:
+            candidates.sort(key=lambda item: item[0], reverse=True)
+            stocks = [item[1] for item in candidates[:limit]]
+
+            if stocks:
                 return stocks
 
         raise RuntimeError("無法從 TWSE API 取得足夠的股票資料")
@@ -71,9 +81,7 @@ def fetch_top_stocks_by_market_cap(limit=150):
     except Exception as exc:
         print(f"警告：{exc}")
         print("將使用常見股票清單作為備用方案...")
-        stocks = fetch_popular_stocks(limit)
-
-    return stocks
+        return fetch_popular_stocks(limit)
 
 
 def fetch_popular_stocks(limit=150):
