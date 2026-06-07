@@ -90,12 +90,12 @@ def main():
             print("⚠️ 未能取得 AI 分析結果，仍繼續執行。")
 
         # ── Gmail 通知 ──────────────────────────────
-        print("\n正在發送 Gmail 通知郵件...")
-        send_email_notification(
-            results,
-            analysis_text=analysis,
-            recommendations=buy_candidates,
-        )
+        # print("\n正在發送 Gmail 通知郵件...")
+        # send_email_notification(
+        #     results,
+        #     analysis_text=analysis,
+        #     recommendations=buy_candidates,
+        # )
 
         # ── 生成 HTML 報告 ───────────────────────────
         print("\n正在生成 HTML 報告...")

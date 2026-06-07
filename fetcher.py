@@ -358,9 +358,20 @@ def _load_institutional_data():
 
 
 def fetch_institutional(stock_code):
-    """從 TWSE 取得法人買賣超（外資、投信、自營商）"""
+    """從 TWSE 取得法人買賣超（外資、投信、自營商）。
+    若資料日期距今超過 2 天（非最近 2 個交易日內）則視為過舊，回傳 None。"""
     data_rows = _load_institutional_data()
     result_date = INSTITUTIONAL_DATA_DATE or datetime.date.today().strftime("%Y%m%d")
+
+    try:
+        data_date = datetime.datetime.strptime(result_date, "%Y%m%d").date()
+        days_old = (datetime.date.today() - data_date).days
+        if days_old > 2:
+            print(f"⚠️ {stock_code} 法人資料過舊（資料日期 {result_date}，距今已 {days_old} 天），視為無效")
+            return None
+    except ValueError:
+        pass
+
     result = {
         "foreign_net": 0,
         "investment_trust_net": 0,
@@ -382,45 +393,47 @@ def fetch_institutional(stock_code):
 
 
 def fetch_news(stock_code, stock_name):
-    """從 Yahoo Finance RSS 抓取近 3 日新聞，最多 5 則"""
+    """從鉅亨網與 Google News RSS 抓取近 3 日新聞，最多 5 則"""
     urls = [
-        f"https://tw.stock.yahoo.com/rss/{stock_code}",
-        f"https://tw.stock.yahoo.com/rss/stock/{stock_code}",
-        f"https://tw.stock.yahoo.com/rss/search?p={stock_name}",
-        f"https://tw.stock.yahoo.com/rss/search?p={stock_code}",
+        f"https://www.cnyes.com/rss/cat/tw_stock",
+        f"https://news.google.com/rss/search?q={stock_name}+股票&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+        f"https://news.google.com/rss/search?q={stock_code}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
     ]
     now = datetime.datetime.now(datetime.timezone.utc)
     recent_news = []
 
     for url in urls:
-        feed = feedparser.parse(url)
-        if not getattr(feed, "entries", None):
-            continue
-
-        for entry in feed.entries:
-            published = None
-            if getattr(entry, "published_parsed", None):
-                published = datetime.datetime(*entry.published_parsed[:6], tzinfo=datetime.timezone.utc)
-            elif getattr(entry, "updated_parsed", None):
-                published = datetime.datetime(*entry.updated_parsed[:6], tzinfo=datetime.timezone.utc)
-
-            if published is None:
+        try:
+            feed = feedparser.parse(url)
+            if not getattr(feed, "entries", None):
                 continue
 
-            age = now - published
-            if age.days > 3:
-                continue
+            for entry in feed.entries:
+                published = None
+                if getattr(entry, "published_parsed", None):
+                    published = datetime.datetime(*entry.published_parsed[:6], tzinfo=datetime.timezone.utc)
+                elif getattr(entry, "updated_parsed", None):
+                    published = datetime.datetime(*entry.updated_parsed[:6], tzinfo=datetime.timezone.utc)
 
-            recent_news.append({
-                "title": entry.get("title", "無標題"),
-                "link": entry.get("link", ""),
-                "published": published.strftime("%Y-%m-%d"),
-            })
+                if published is None:
+                    continue
 
+                age = now - published
+                if age.days > 3:
+                    continue
+
+                recent_news.append({
+                    "title": entry.get("title", "無標題"),
+                    "link": entry.get("link", ""),
+                    "published": published.strftime("%Y-%m-%d"),
+                })
+
+                if len(recent_news) >= 5:
+                    break
+            
             if len(recent_news) >= 5:
                 break
-
-        if recent_news:
-            break
+        except Exception:
+            continue
 
     return recent_news

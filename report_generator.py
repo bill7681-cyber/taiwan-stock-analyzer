@@ -1,4 +1,83 @@
 import datetime
+import html
+import re
+
+
+def _markdown_to_html(markdown_text):
+    """將 AI 分析常見的簡易 Markdown 語法轉成 HTML：
+    # 標題 -> <h2>、## 標題 -> <h3>、### 標題 -> <h4>、
+    **文字** -> <strong>、- 項目 -> <li>（以 <ul> 包裹）、--- -> <hr>。"""
+
+    def format_inline(text):
+        escaped = html.escape(text)
+        return re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', escaped)
+
+    lines = markdown_text.replace('\r', '').split('\n')
+    chunks = []
+    in_list = False
+
+    def close_list():
+        nonlocal in_list
+        if in_list:
+            chunks.append('</ul>')
+            in_list = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        if not stripped:
+            close_list()
+            continue
+
+        if re.match(r'^-{3,}$', stripped):
+            close_list()
+            chunks.append('<hr>')
+            continue
+
+        if stripped.startswith('### '):
+            close_list()
+            chunks.append(f'<h4>{format_inline(stripped[4:].strip())}</h4>')
+            continue
+
+        if stripped.startswith('## '):
+            close_list()
+            chunks.append(f'<h3>{format_inline(stripped[3:].strip())}</h3>')
+            continue
+
+        if stripped.startswith('# '):
+            close_list()
+            chunks.append(f'<h2>{format_inline(stripped[2:].strip())}</h2>')
+            continue
+
+        list_match = re.match(r'^[-+*]\s+(.*)$', stripped)
+        if list_match:
+            if not in_list:
+                chunks.append('<ul>')
+                in_list = True
+            chunks.append(f'<li>{format_inline(list_match.group(1).strip())}</li>')
+            continue
+
+        close_list()
+        chunks.append(f'<p>{format_inline(stripped)}</p>')
+
+    close_list()
+    return ''.join(chunks)
+
+
+def _format_change_with_pct(stock):
+    """組合漲跌點數與百分比，例如 +10.00 (+0.76%)。
+    來源資料只有點數（change / change_float），百分比需自行換算：
+    昨收 = 收盤價 - 漲跌點數，漲跌幅 = 漲跌點數 / 昨收 * 100。"""
+    change_str = str(stock.get("change", "")).strip()
+    try:
+        change_float = float(stock.get("change_float", 0) or 0)
+        prev_close = float(stock.get("close", 0)) - change_float
+        if prev_close == 0:
+            return change_str
+        pct = change_float / prev_close * 100
+        return f"{change_str} ({pct:+.2f}%)"
+    except (TypeError, ValueError):
+        return change_str
 
 
 def generate_html_report(results, analysis_text=None, recommendations=None):
@@ -14,7 +93,6 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
     # 漲幅前5列
     top5_rows = ""
     for i, s in enumerate(top5, 1):
-        pct = float(s.get("change_float", 0))
         color = "#4ade80"
         top5_rows += f"""
         <tr>
@@ -22,7 +100,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
           <td><strong>{s['stock_id']}</strong></td>
           <td>{s.get('stock_name','')}</td>
           <td>{s.get('close','')}</td>
-          <td style="color:{color};font-weight:600">{s.get('change','')}</td>
+          <td style="color:{color};font-weight:600">{_format_change_with_pct(s)}</td>
         </tr>"""
 
     # 跌幅最深5列
@@ -35,7 +113,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
           <td><strong>{s['stock_id']}</strong></td>
           <td>{s.get('stock_name','')}</td>
           <td>{s.get('close','')}</td>
-          <td style="color:{color};font-weight:600">{s.get('change','')}</td>
+          <td style="color:{color};font-weight:600">{_format_change_with_pct(s)}</td>
         </tr>"""
 
     # 買入訊號
@@ -47,19 +125,14 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
               <td><strong>{s['stock_id']}</strong></td>
               <td>{s.get('stock_name','')}</td>
               <td>{s.get('close','')}</td>
-              <td>{s.get('change','')}</td>
+              <td>{_format_change_with_pct(s)}</td>
             </tr>"""
     else:
         rec_rows = '<tr><td colspan="4" style="text-align:center;color:#666">今日無明確買入訊號</td></tr>'
 
-    # AI 分析文字
-    ai_block = ""
+    # AI 分析文字（將 Markdown 語法轉換成 HTML）
     if analysis_text:
-        paragraphs = analysis_text.replace("\r\n", "\n").split("\n")
-        ai_block = "".join(
-            f"<p>{p}</p>" if p.strip() else "<br>"
-            for p in paragraphs
-        )
+        ai_block = _markdown_to_html(analysis_text)
     else:
         ai_block = "<p style='color:#666'>今日未取得 AI 分析結果。</p>"
 
@@ -146,6 +219,13 @@ def generate_html_report(results, analysis_text=None, recommendations=None):
       color: #cbd5e1;
     }}
     .ai-box p {{ margin-bottom: 10px; }}
+    .ai-box h2 {{ font-size: 1.15rem; font-weight: 700; color: #fff; margin: 20px 0 12px; }}
+    .ai-box h3 {{ font-size: 1rem; font-weight: 600; color: #e2e8f0; margin: 18px 0 10px; }}
+    .ai-box h4 {{ font-size: 0.92rem; font-weight: 600; color: #cbd5e1; margin: 14px 0 8px; }}
+    .ai-box ul {{ margin: 0 0 12px 1.4em; }}
+    .ai-box li {{ margin-bottom: 6px; }}
+    .ai-box hr {{ border: none; border-top: 1px solid #1e3a5f; margin: 18px 0; }}
+    .ai-box strong {{ color: #fff; }}
     footer {{
       text-align: center;
       padding: 24px;

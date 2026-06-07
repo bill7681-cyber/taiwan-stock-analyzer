@@ -50,12 +50,11 @@ def compute_technical_indicators(history):
     avg_vol5 = sum(recent_volumes) / len(recent_volumes) if recent_volumes else 0
     volume_increase = avg_vol5 > 0 and last_volume > avg_vol5 * 1.2
     above_5ma = ma5 is not None and latest["close"] > ma5
-    buy_signal = golden_cross or (above_5ma and volume_increase)
+    buy_signal = golden_cross and above_5ma and volume_increase
 
     buy_reasons = []
-    if golden_cross:
+    if buy_signal:
         buy_reasons.append(f"KD黃金交叉（K={current_kd['k']:.1f}、D={current_kd['d']:.1f}）")
-    if above_5ma and volume_increase:
         buy_reasons.append(
             f"股價站上5日均線且量增（今日量={last_volume:,}, 5日均量={avg_vol5:,.0f}）"
         )

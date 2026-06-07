@@ -25,7 +25,6 @@ def deploy_to_vercel(html_content: str) -> bool:
         cmds = [
             ["git", "add", "public/index.html"],
             ["git", "commit", "-m", f"report: {date_str}"],
-            ["git", "push"],
         ]
         for cmd in cmds:
             result = subprocess.run(
@@ -39,6 +38,32 @@ def deploy_to_vercel(html_content: str) -> bool:
                     break
                 print(f"✗ git 指令失敗：{' '.join(cmd)}")
                 print(result.stderr)
+                return False
+
+        push_result = subprocess.run(
+            ["git", "push"], cwd=repo_dir,
+            capture_output=True, text=True
+        )
+        if push_result.returncode != 0:
+            print("⚠️ git push 失敗，嘗試 git pull --rebase 後重試...")
+            print(push_result.stderr)
+
+            pull_result = subprocess.run(
+                ["git", "pull", "--rebase"], cwd=repo_dir,
+                capture_output=True, text=True
+            )
+            if pull_result.returncode != 0:
+                print("✗ git pull --rebase 失敗")
+                print(pull_result.stderr)
+                return False
+
+            push_result = subprocess.run(
+                ["git", "push"], cwd=repo_dir,
+                capture_output=True, text=True
+            )
+            if push_result.returncode != 0:
+                print("✗ git push 重試後仍失敗")
+                print(push_result.stderr)
                 return False
 
         print(f"✓ 已推送至 GitHub，Vercel 自動部署中...")
