@@ -12,7 +12,47 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8238969400")
 def deploy_to_vercel(html_content: str) -> bool:
     """將 HTML 報告寫入 public/index.html 並 git push 觸發 Vercel 部署"""
     try:
-        output_path = os.path.join(os.path.dirname(__file__), "public", "index.html")
+        repo_dir = os.path.dirname(__file__)
+
+        # 推送前先暫存未提交的修改、同步遠端最新狀態，再還原暫存
+        # 流程：git stash -> git pull --rebase -> git stash pop
+        stash_result = subprocess.run(
+            ["git", "stash"], cwd=repo_dir,
+            capture_output=True, text=True
+        )
+        stashed = "No local changes to save" not in (stash_result.stdout + stash_result.stderr)
+        if stash_result.returncode != 0:
+            print("✗ git stash 失敗，停止部署")
+            print(stash_result.stderr)
+            return False
+        if stashed:
+            print("✓ 已暫存工作目錄的未提交修改（git stash）")
+
+        print("正在同步遠端最新狀態（git pull --rebase）...")
+        sync_result = subprocess.run(
+            ["git", "pull", "--rebase"], cwd=repo_dir,
+            capture_output=True, text=True
+        )
+        if sync_result.returncode != 0:
+            print("✗ git pull --rebase 失敗，停止部署")
+            print(sync_result.stderr)
+            if stashed:
+                subprocess.run(["git", "stash", "pop"], cwd=repo_dir, capture_output=True, text=True)
+                print("⚠️ 已還原暫存的修改（git stash pop）")
+            return False
+
+        if stashed:
+            pop_result = subprocess.run(
+                ["git", "stash", "pop"], cwd=repo_dir,
+                capture_output=True, text=True
+            )
+            if pop_result.returncode != 0:
+                print("✗ git stash pop 失敗（可能發生衝突），請手動執行 git stash list 處理")
+                print(pop_result.stderr)
+                return False
+            print("✓ 已還原暫存的修改（git stash pop）")
+
+        output_path = os.path.join(repo_dir, "public", "index.html")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         with open(output_path, "w", encoding="utf-8") as f:
@@ -21,7 +61,6 @@ def deploy_to_vercel(html_content: str) -> bool:
 
         date_str = datetime.date.today().strftime("%Y-%m-%d")
 
-        repo_dir = os.path.dirname(__file__)
         cmds = [
             ["git", "add", "public/index.html"],
             ["git", "commit", "-m", f"report: {date_str}"],
