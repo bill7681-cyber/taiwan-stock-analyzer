@@ -2,7 +2,7 @@ import os
 import requests
 
 
-def analyze_with_ai(results):
+def analyze_with_ai(stock_data):
     """使用 OpenRouter API 的 Claude 模型分析台股數據"""
     try:
         api_key = os.getenv("OPENROUTER_API_KEY")
@@ -11,6 +11,10 @@ def analyze_with_ai(results):
         if not api_key:
             print("❌ AI 分析失敗：缺少 OPENROUTER_API_KEY 環境變數，請檢查 .env 是否設定")
             return None
+
+        results = stock_data.get("stocks") if isinstance(stock_data, dict) else stock_data
+        if results is None:
+            results = []
 
         top_gainers = results[:10]
         top_losers = results[-5:]
@@ -23,6 +27,31 @@ def analyze_with_ai(results):
         for idx, stock in enumerate(top_losers, 1):
             losers_text += f"{idx}. {stock['stock_id']} ({stock['stock_name']})：{stock['change']}（收盤價：{stock['close']}）\n"
 
+        def format_institutional(stock):
+            ins = stock.get("institutional") or {}
+            if not ins:
+                return f"{stock['stock_id']} ({stock['stock_name']}): 未取得法人資料\n"
+            return (
+                f"{stock['stock_id']} ({stock['stock_name']}): 外資{ins.get('foreign_net', 0):,}、"
+                f"投信{ins.get('investment_trust_net', 0):,}、自營商{ins.get('dealer_net', 0):,}\n"
+            )
+
+        institutional_text = "法人籌碼摘要：\n"
+        for stock in top_gainers[:3] + top_losers[:2]:
+            institutional_text += format_institutional(stock)
+
+        def format_news(stock):
+            if not stock.get("news"):
+                return f"{stock['stock_id']} ({stock['stock_name']}): 無近期新聞\n"
+            text = f"{stock['stock_id']} ({stock['stock_name']}):\n"
+            for item in stock["news"][:2]:
+                text += f"  - {item['published']} {item['title']} ({item['link']})\n"
+            return text
+
+        news_text = "近期新聞摘要：\n"
+        for stock in top_gainers[:2] + top_losers[:2]:
+            news_text += format_news(stock)
+
         total_stocks = len(results)
         up_count = sum(1 for s in results if s["change_float"] > 0)
         down_count = sum(1 for s in results if s["change_float"] < 0)
@@ -34,7 +63,7 @@ def analyze_with_ai(results):
         stats_text += f"- 下跌股票數：{down_count}（{down_count/total_stocks*100:.1f}%）\n"
         stats_text += f"- 平均漲幅：{avg_change:.2f}%\n"
 
-        prompt = f"""請針對以下台股前150大股票的今日漲跌數據進行分析，並以繁體中文提供深入的市場分析。\n\n{gainers_text}\n{losers_text}\n{stats_text}\n請提供以下四點分析：\n\n1. **今日大盤趨勢**：分析整體市場走勢、上升或下跌的主要原因，以及市場情緒。\n\n2. **值得關注的強勢股**：從漲幅前10名的股票中，分析哪些股票具有持續上漲的潛力，以及背後的可能原因。\n\n3. **需要注意的弱勢股**：從跌幅前5名的股票中，分析這些股票下跌的原因，以及是否存在反彈機會。\n\n4. **明日操作建議**：基於今日分析，提供投資者明日可能的操作策略和需要關注的重點。\n\n請用專業但易懂的語言進行分析，並避免過度樂觀或悲觀的表述。"""
+        prompt = f"""請針對以下台股前150大股票的今日漲跌數據進行分析，並以繁體中文提供深入的市場分析。\n\n{gainers_text}\n{losers_text}\n{institutional_text}\n{news_text}\n{stats_text}\n\n請根據以下規則提供推薦：\n\n- 推薦清單最多 5 支股票，請只列出最符合條件的個股，不要把所有符合條件的股票都列出。\n- 每支推薦股票必須同時滿足至少兩個條件：\n  1. 技術面：收盤價站上 5 日均線，且成交量有放大（相對於昨日或近五日平均量）。\n  2. 籌碼面：法人合計買超 > 0（外資 + 投信 + 自營商）。\n  3. 消息面：有近期正面新聞或利多題材。\n- 每支推薦請附上綜合評分（1-5 星）和一句話理由。\n- 若所有股票的法人合計買超皆為負數，請直接回覆：「今日法人整體偏空，建議觀望」，不需要列出買入清單。\n\n請提供以下內容：\n\n1. **今日大盤趨勢**：分析整體市場走勢、主要驅動因素與市場情緒。\n\n2. **推薦買入個股**：最多 5 支，請依符合條件與整體表現排序，每支附上 1-5 星評分與一句話理由。\n\n3. **觀察名單**：如果有值得追蹤但尚未完全符合入選條件的個股，可簡要提出 1-2 支。\n\n4. **法人籌碼與新聞影響**：評估法人籌碼與近期新聞對個股及整體市場的影響。\n\n請用專業但易懂的語言撰寫分析，並避免過度樂觀或悲觀的用詞。"""
 
         headers = {
             "Authorization": f"Bearer {api_key}",

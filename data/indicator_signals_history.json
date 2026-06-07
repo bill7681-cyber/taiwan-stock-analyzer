@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2026-05-31",
+    "stock": "AAA",
+    "macd_golden": true,
+    "kd_below_20": false
+  },
+  {
+    "date": "2026-06-02",
+    "stock": "BBB",
+    "macd_golden": false,
+    "kd_below_20": true
+  }
+]

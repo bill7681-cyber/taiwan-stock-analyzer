@@ -76,7 +76,7 @@ def convert_markdown_to_html(markdown_text):
     return ''.join(html_chunks)
 
 
-def generate_email_html(top_gainers, top_losers, analysis_text=None, recommendations=None):
+def generate_email_html(top_gainers, top_losers, analysis_text=None, recommendations=None, ai_backtest=None, indicator_backtest=None):
     """生成 HTML 格式的股票分析郵件"""
     today = datetime.date.today().strftime("%Y年%m月%d日")
     analysis_html = ""
@@ -306,6 +306,42 @@ def generate_email_html(top_gainers, top_losers, analysis_text=None, recommendat
             </div>
             {analysis_html}
             {recommendation_html}
+            <div class="backtest">
+                <h2>📈 AI建議回測結果</h2>
+"""
+
+    # AI 回測結果呈現
+    if ai_backtest:
+        for days, stats in ai_backtest.items():
+            if stats.get('note'):
+                html_content += f"<p>回溯 {days} 日：{stats.get('note')}</p>"
+            else:
+                rate = f"{stats.get('rate'):.1f}%" if stats.get('rate') is not None else "N/A"
+                html_content += f"<p>回溯 {days} 日：共 {stats.get('total')} 支，{stats.get('wins')} 支上漲，正確率：{rate}</p>"
+    else:
+        html_content += "<p>AI 建議回測：累積中，需要更多資料。</p>"
+
+    html_content += """
+            </div>
+            <div class="backtest">
+                <h2>🔎 技術指標訊號回測（MACD / KD）</h2>
+"""
+
+    # 技術指標回測呈現
+    if indicator_backtest:
+        if indicator_backtest.get('note'):
+            html_content += f"<p>{indicator_backtest.get('note')}</p>"
+        else:
+            macd = indicator_backtest.get('macd', {})
+            kd = indicator_backtest.get('kd', {})
+            macd_rate = f"{macd.get('rate'):.1f}%" if macd.get('rate') is not None else "N/A"
+            kd_rate = f"{kd.get('rate'):.1f}%" if kd.get('rate') is not None else "N/A"
+            html_content += f"<p>MACD 黃金交叉：共 {macd.get('total')} 支，其中 {macd.get('wins')} 支在 {indicator_backtest.get('days_ago')} 日後上漲（成功率：{macd_rate}）</p>"
+            html_content += f"<p>KD &lt;20：共 {kd.get('total')} 支，其中 {kd.get('wins')} 支在 {indicator_backtest.get('days_ago')} 日後上漲（成功率：{kd_rate}）</p>"
+    else:
+        html_content += "<p>技術指標回測：累積中，需要更多資料。</p>"
+
+    html_content += """
             <div class="footer">
                 <p>此為自動生成的股票分析報告，僅供參考。</p>
             </div>
@@ -317,7 +353,7 @@ def generate_email_html(top_gainers, top_losers, analysis_text=None, recommendat
     return html_content
 
 
-def send_email_notification(results, analysis_text=None, recommendations=None):
+def send_email_notification(results, analysis_text=None, recommendations=None, ai_backtest=None, indicator_backtest=None):
     """發送 Gmail 通知郵件"""
     try:
         sender_email = os.getenv("GMAIL_SENDER_EMAIL")
@@ -338,6 +374,8 @@ def send_email_notification(results, analysis_text=None, recommendations=None):
             results,
             analysis_text=analysis_text,
             recommendations=recommendations,
+            ai_backtest=ai_backtest,
+            indicator_backtest=indicator_backtest,
         )
 
         msg = MIMEMultipart("alternative")

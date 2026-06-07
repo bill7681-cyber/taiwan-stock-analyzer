@@ -1,3 +1,5 @@
+import fetcher
+
 def calculate_kd(history):
     """計算 KD 指標序列"""
     kd_list = []
@@ -66,3 +68,26 @@ def compute_technical_indicators(history):
         "buy_signal": buy_signal,
         "buy_reason": "；".join(buy_reasons) if buy_reasons else "",
     }
+
+
+def analyze(history, stock_code=None, stock_name=None):
+    """整合技術指標、法人籌碼與近期新聞"""
+    analysis_result = compute_technical_indicators(history)
+    institutional = {}
+    news = []
+
+    if stock_code:
+        try:
+            institutional = fetcher.fetch_institutional(stock_code)
+        except Exception:
+            institutional = {}
+
+    if stock_code and stock_name:
+        try:
+            news = fetcher.fetch_news(stock_code, stock_name)
+        except Exception:
+            news = []
+
+    analysis_result["institutional"] = institutional
+    analysis_result["news"] = news
+    return analysis_result

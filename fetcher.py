@@ -1,7 +1,11 @@
 import datetime
+import feedparser
 import requests
 
 STOCK_DAY_API = "https://www.twse.com.tw/exchangeReport/STOCK_DAY"
+INSTITUTIONAL_T86_API = "https://www.twse.com.tw/rwd/zh/fund/T86"
+INSTITUTIONAL_CACHE = None
+INSTITUTIONAL_DATA_DATE = None
 
 
 def get_month_strings(months=2):
@@ -303,3 +307,120 @@ def fetch_latest_price(stock_id):
         "change_float": change_float,
         "history": history,
     }
+
+
+def _load_institutional_data():
+    global INSTITUTIONAL_CACHE, INSTITUTIONAL_DATA_DATE
+    if INSTITUTIONAL_CACHE is not None:
+        return INSTITUTIONAL_CACHE
+
+    base_date = datetime.date.today()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+
+    for offset in range(7):
+        query_date = (base_date - datetime.timedelta(days=offset)).strftime("%Y%m%d")
+        params = {
+            "response": "json",
+            "date": query_date,
+            "selectType": "ALL",
+        }
+
+        try:
+            response = requests.get(INSTITUTIONAL_T86_API, params=params, headers=headers, timeout=15)
+            response.raise_for_status()
+            payload = response.json()
+
+            if payload.get("stat") != "OK":
+                continue
+
+            rows = payload.get("data", [])
+            if not rows:
+                continue
+
+            inst_data = {}
+            for row in rows:
+                if not isinstance(row, list) or len(row) < 19:
+                    continue
+                stock_code = str(row[0]).strip()
+                inst_data[stock_code] = row
+
+            INSTITUTIONAL_CACHE = inst_data
+            INSTITUTIONAL_DATA_DATE = query_date
+            return inst_data
+        except Exception:
+            continue
+
+    INSTITUTIONAL_CACHE = {}
+    INSTITUTIONAL_DATA_DATE = None
+    return INSTITUTIONAL_CACHE
+
+
+def fetch_institutional(stock_code):
+    """從 TWSE 取得法人買賣超（外資、投信、自營商）"""
+    data_rows = _load_institutional_data()
+    result_date = INSTITUTIONAL_DATA_DATE or datetime.date.today().strftime("%Y%m%d")
+    result = {
+        "foreign_net": 0,
+        "investment_trust_net": 0,
+        "dealer_net": 0,
+        "three_major_net": 0,
+        "source": "TWSE 法人買賣超",
+        "date": result_date,
+    }
+
+    row = data_rows.get(str(stock_code).strip())
+    if not row:
+        return result
+
+    result["foreign_net"] = parse_int(row[4]).__int__()
+    result["investment_trust_net"] = parse_int(row[10]).__int__()
+    result["dealer_net"] = parse_int(row[14]).__int__()
+    result["three_major_net"] = parse_int(row[18]).__int__()
+    return result
+
+
+def fetch_news(stock_code, stock_name):
+    """從 Yahoo Finance RSS 抓取近 3 日新聞，最多 5 則"""
+    urls = [
+        f"https://tw.stock.yahoo.com/rss/{stock_code}",
+        f"https://tw.stock.yahoo.com/rss/stock/{stock_code}",
+        f"https://tw.stock.yahoo.com/rss/search?p={stock_name}",
+        f"https://tw.stock.yahoo.com/rss/search?p={stock_code}",
+    ]
+    now = datetime.datetime.now(datetime.timezone.utc)
+    recent_news = []
+
+    for url in urls:
+        feed = feedparser.parse(url)
+        if not getattr(feed, "entries", None):
+            continue
+
+        for entry in feed.entries:
+            published = None
+            if getattr(entry, "published_parsed", None):
+                published = datetime.datetime(*entry.published_parsed[:6], tzinfo=datetime.timezone.utc)
+            elif getattr(entry, "updated_parsed", None):
+                published = datetime.datetime(*entry.updated_parsed[:6], tzinfo=datetime.timezone.utc)
+
+            if published is None:
+                continue
+
+            age = now - published
+            if age.days > 3:
+                continue
+
+            recent_news.append({
+                "title": entry.get("title", "無標題"),
+                "link": entry.get("link", ""),
+                "published": published.strftime("%Y-%m-%d"),
+            })
+
+            if len(recent_news) >= 5:
+                break
+
+        if recent_news:
+            break
+
+    return recent_news

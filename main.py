@@ -13,6 +13,8 @@ from fetcher import fetch_top_stocks_by_market_cap, fetch_latest_price
 from analyzer import compute_technical_indicators
 from ai_analysis import analyze_with_ai
 from email_sender import send_email_notification
+from report_generator import generate_html_report
+from vercel_deploy import deploy_to_vercel, send_telegram_link
 
 
 def print_stock_list(stocks):
@@ -75,24 +77,53 @@ def main():
 
         buy_candidates = [item for item in results if item.get("buy_signal")]
 
-        print("\n正在使用 Claude 進行 AI 分析...")
+        print("\n正在使用 AI 進行分析...")
         analysis = analyze_with_ai(results)
         if analysis:
             print("\n" + "="*80)
-            print("📊 Claude AI 分析結果")
+            print("📊 AI 分析結果")
             print("="*80)
             print(analysis)
             print("="*80 + "\n")
         else:
             analysis = None
-            print("⚠️ 未能取得 AI 分析結果，郵件仍會照常發送。")
+            print("⚠️ 未能取得 AI 分析結果，仍繼續執行。")
 
+        # ── Gmail 通知 ──────────────────────────────
         print("\n正在發送 Gmail 通知郵件...")
         send_email_notification(
             results,
             analysis_text=analysis,
             recommendations=buy_candidates,
         )
+
+        # ── 生成 HTML 報告 ───────────────────────────
+        print("\n正在生成 HTML 報告...")
+        html = generate_html_report(
+            results,
+            analysis_text=analysis,
+            recommendations=buy_candidates,
+        )
+
+        # ── 部署到 Vercel ────────────────────────────
+        print("\n正在推送報告到 Vercel...")
+        deployed = deploy_to_vercel(html)
+
+        # ── Telegram 發送連結 ────────────────────────
+        up_count = sum(1 for s in results if float(s.get("change_float", 0)) > 0)
+        down_count = sum(1 for s in results if float(s.get("change_float", 0)) < 0)
+
+        print("\n正在發送 Telegram 通知...")
+        send_telegram_link(
+            up_count=up_count,
+            down_count=down_count,
+            top3=results[:3],
+        )
+
+        if deployed:
+            print("\n✅ 完成！報告已上傳至 Vercel。")
+        else:
+            print("\n⚠️ Vercel 部署失敗，請檢查 git 設定。")
 
 
 if __name__ == "__main__":
