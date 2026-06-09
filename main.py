@@ -10,7 +10,7 @@ try:
 except ImportError:
     pass
 
-from fetcher import fetch_top_stocks_by_market_cap, fetch_latest_price, fetch_taiex_index
+from fetcher import fetch_top_stocks_by_market_cap, fetch_latest_price, fetch_taiex_index, fetch_institutional
 from analyzer import compute_technical_indicators
 from ai_analysis import analyze_with_ai
 from email_sender import send_email_notification
@@ -55,6 +55,7 @@ def main():
                 indicators = compute_technical_indicators(data["history"])
                 data.update(indicators)
                 data["stock_name"] = stock_name
+                data["institutional"] = fetch_institutional(stock_id)
                 results.append(data)
                 print("✓")
                 success_count += 1
@@ -65,7 +66,13 @@ def main():
 
     print(f"\n成功抓取 {success_count}/{len(top_stocks)} 支股票的資料\n")
 
-    results.sort(key=lambda x: x["change_float"], reverse=True)
+    results.sort(key=lambda x: x.get("change_pct", 0), reverse=True)
+
+    # 診斷：印出前3支股票的 institutional 欄位
+    print("\n[診斷] 前3支股票的 institutional 欄位：")
+    for item in results[:3]:
+        print(f"  {item['stock_id']} ({item['stock_name']}): {item.get('institutional')}")
+
     print_stock_list(results)
 
     if results:

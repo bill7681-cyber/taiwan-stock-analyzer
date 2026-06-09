@@ -55,15 +55,15 @@ def _format_summary(results, analysis_text=None, ai_backtest=None, indicator_bac
     up   = sum(1 for s in results if s.get("change_float", 0) > 0)
     down = sum(1 for s in results if s.get("change_float", 0) < 0)
     flat = total - up - down
-    avg  = sum(s.get("change_float", 0) for s in results) / total if total else 0
+    avg  = sum(s.get("change_pct", 0) for s in results) / total if total else 0
 
     gainers = sorted(
         [s for s in results if s.get("change_float", 0) > 0],
-        key=lambda x: x["change_float"], reverse=True
+        key=lambda x: x.get("change_pct", 0), reverse=True
     )[:3]
     losers = sorted(
         [s for s in results if s.get("change_float", 0) < 0],
-        key=lambda x: x["change_float"]
+        key=lambda x: x.get("change_pct", 0)
     )[:3]
 
     lines = [
@@ -131,7 +131,7 @@ async def _send_all(token, chat_id, results, analysis_text, ai_backtest, indicat
             await bot.send_message(chat_id=chat_id, text=chunk)
 
     # 接著：三張圖表（各自發送）
-    all_sorted = sorted(results, key=lambda x: x.get("change_float", 0), reverse=True)
+    all_sorted = sorted(results, key=lambda x: x.get("change_pct", 0), reverse=True)
     charts = [
         (generate_change_bar_chart(all_sorted),             "漲跌幅排行圖"),
         (generate_market_breadth_pie(all_sorted),           "大盤多空比例圖"),

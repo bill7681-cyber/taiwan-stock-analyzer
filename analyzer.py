@@ -56,7 +56,7 @@ def compute_technical_indicators(history):
     if buy_signal:
         buy_reasons.append(f"KD黃金交叉（K={current_kd['k']:.1f}、D={current_kd['d']:.1f}）")
         buy_reasons.append(
-            f"股價站上5日均線且量增（今日量={last_volume:,}, 5日均量={avg_vol5:,.0f}）"
+            f"股價站上5日均線且量增（今日量={last_volume // 1000:,}張, 5日均量={avg_vol5 / 1000:,.0f}張）"
         )
 
     return {

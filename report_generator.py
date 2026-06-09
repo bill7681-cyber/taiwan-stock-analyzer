@@ -160,6 +160,44 @@ def _format_buy_reason(stock):
     return "📌 " + " + ".join(parts)
 
 
+def _format_technical_status(stock):
+    """組合技術面狀態一行說明，格式：📊 K=18.2（✅ 低檔黃金交叉） ｜ 站上月線 ｜ 量增1.96倍"""
+    parts = []
+
+    kd_k = stock.get("kd_k")
+    if kd_k is not None:
+        try:
+            k = float(kd_k)
+            if k > 80:
+                parts.append(f"K={k:.1f}（⚠️ 高檔注意）")
+            elif k < 30:
+                parts.append(f"K={k:.1f}（✅ 低檔黃金交叉）")
+            else:
+                parts.append(f"K={k:.1f}")
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        close = float(stock.get("close", 0))
+        ma20 = stock.get("ma20")
+        if ma20 is not None:
+            parts.append("站上月線" if close > float(ma20) else "月線壓力待突破")
+    except (TypeError, ValueError):
+        pass
+
+    history = stock.get("history") or []
+    if len(history) >= 6:
+        last_volume = history[-1]["volume"]
+        recent_volumes = [item["volume"] for item in history[-6:-1]]
+        avg_vol5 = sum(recent_volumes) / len(recent_volumes) if recent_volumes else 0
+        if avg_vol5 > 0:
+            parts.append(f"量增{last_volume / avg_vol5:.2f}倍")
+
+    if not parts:
+        return ""
+    return "📊 " + " ｜ ".join(parts)
+
+
 def _build_signal_accuracy_block(signal_accuracy):
     """將買入訊號歷史準確率資料（來自 backtester.evaluate_buy_signal_accuracy）轉成 HTML 表格。
     顯示推薦當日收盤價與 N 個交易日後收盤價的漲跌幅統計（勝率、平均報酬率）。"""
@@ -266,6 +304,13 @@ def generate_html_report(results, analysis_text=None, recommendations=None, taie
             <tr>
               <td colspan="5" style="border-top:none;padding-top:0;color:#94a3b8;font-size:0.82rem">{reason_text}</td>
             </tr>"""
+            tech_status = _format_technical_status(s)
+            tech_row = ""
+            if tech_status:
+                tech_row = f"""
+            <tr>
+              <td colspan="5" style="border-top:none;padding-top:2px;padding-bottom:10px;color:#60a5fa;font-size:0.8rem">{tech_status}</td>
+            </tr>"""
             rec_rows += f"""
             <tr>
               <td><strong>{s['stock_id']}</strong></td>
@@ -273,7 +318,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None, taie
               <td>{s.get('close','')}</td>
               <td>{_format_change_with_pct(s)}</td>
               <td>{_format_volume_lots(s)}</td>
-            </tr>{reason_row}"""
+            </tr>{reason_row}{tech_row}"""
     else:
         rec_rows = '<tr><td colspan="5" style="text-align:center;color:#666">今日無明確買入訊號</td></tr>'
 

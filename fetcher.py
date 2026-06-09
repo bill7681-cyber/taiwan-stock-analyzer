@@ -346,7 +346,8 @@ def fetch_latest_price(stock_id):
         return None
 
     latest = history[-1]
-    close_price = f"{latest['close']:.2f}"
+    close_val = latest['close']
+    close_price = f"{close_val:.2f}"
     price_change = latest["change"]
 
     try:
@@ -354,13 +355,17 @@ def fetch_latest_price(stock_id):
     except ValueError:
         change_float = 0.0
 
+    prev_close = close_val - change_float
+    change_pct = round(change_float / prev_close * 100, 2) if prev_close > 0 else 0.0
+
     return {
         "stock_id": stock_id,
         "stock_name": "",
         "date": latest["date"],
         "close": close_price,
         "change": price_change,
-        "change_float": change_float,
+        "change_float": change_float,   # NTD 點數差（用於判斷漲跌方向）
+        "change_pct": change_pct,       # 真實漲跌幅 %
         "volume": latest["volume"],
         "history": history,
     }

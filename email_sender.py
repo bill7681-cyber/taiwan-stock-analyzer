@@ -123,7 +123,7 @@ def generate_email_html(top_gainers, top_losers, analysis_text=None, recommendat
 
     if chart_blocks is None:
         # 本地預覽：生成 base64 inline 圖表
-        all_results = sorted(top_gainers, key=lambda x: x.get("change_float", 0), reverse=True)
+        all_results = sorted(top_gainers, key=lambda x: x.get("change_pct", 0), reverse=True)
         chart_blocks = {
             "bar":  chart_html_block(all_results),
             "pie":  market_breadth_html_block(all_results),
@@ -475,7 +475,7 @@ def send_email_notification(results, analysis_text=None, recommendations=None,
             return False
 
         # ── 1. 生成三張圖表 bytes ──
-        all_sorted = sorted(results, key=lambda x: x.get("change_float", 0), reverse=True)
+        all_sorted = sorted(results, key=lambda x: x.get("change_pct", 0), reverse=True)
 
         _charts = {
             "chart_bar":  (generate_change_bar_chart(all_sorted),       "漲跌幅排行圖"),

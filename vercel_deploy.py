@@ -59,9 +59,9 @@ def deploy_to_vercel(html_content: str) -> bool:
         # 流程：git stash -> git pull --rebase -> git stash pop
         stash_result = subprocess.run(
             ["git", "stash"], cwd=repo_dir,
-            capture_output=True, text=True
+            capture_output=True, encoding='utf-8', errors='replace'
         )
-        stashed = "No local changes to save" not in (stash_result.stdout + stash_result.stderr)
+        stashed = "No local changes to save" not in ((stash_result.stdout or '') + (stash_result.stderr or ''))
         if stash_result.returncode != 0:
             print("✗ git stash 失敗，停止部署")
             print(stash_result.stderr)
@@ -72,20 +72,20 @@ def deploy_to_vercel(html_content: str) -> bool:
         print("正在同步遠端最新狀態（git pull --rebase）...")
         sync_result = subprocess.run(
             ["git", "pull", "--rebase"], cwd=repo_dir,
-            capture_output=True, text=True
+            capture_output=True, encoding='utf-8', errors='replace'
         )
         if sync_result.returncode != 0:
             print("✗ git pull --rebase 失敗，停止部署")
             print(sync_result.stderr)
             if stashed:
-                subprocess.run(["git", "stash", "pop"], cwd=repo_dir, capture_output=True, text=True)
+                subprocess.run(["git", "stash", "pop"], cwd=repo_dir, capture_output=True, encoding='utf-8', errors='replace')
                 print("⚠️ 已還原暫存的修改（git stash pop）")
             return False
 
         if stashed:
             pop_result = subprocess.run(
                 ["git", "stash", "pop"], cwd=repo_dir,
-                capture_output=True, text=True
+                capture_output=True, encoding='utf-8', errors='replace'
             )
             if pop_result.returncode != 0:
                 print("✗ git stash pop 失敗（可能發生衝突），請手動執行 git stash list 處理")
@@ -125,11 +125,11 @@ def deploy_to_vercel(html_content: str) -> bool:
         for cmd in cmds:
             result = subprocess.run(
                 cmd, cwd=repo_dir,
-                capture_output=True, text=True
+                capture_output=True, encoding='utf-8', errors='replace'
             )
             if result.returncode != 0:
                 # commit 時若無變更不算錯誤
-                if "nothing to commit" in result.stdout + result.stderr:
+                if "nothing to commit" in (result.stdout or '') + (result.stderr or ''):
                     print("⚠️ git: 無新變更，略過 commit")
                     break
                 print(f"✗ git 指令失敗：{' '.join(cmd)}")
@@ -138,7 +138,7 @@ def deploy_to_vercel(html_content: str) -> bool:
 
         push_result = subprocess.run(
             ["git", "push"], cwd=repo_dir,
-            capture_output=True, text=True
+            capture_output=True, encoding='utf-8', errors='replace'
         )
         if push_result.returncode != 0:
             print("⚠️ git push 失敗，嘗試 git pull --rebase 後重試...")
@@ -146,7 +146,7 @@ def deploy_to_vercel(html_content: str) -> bool:
 
             pull_result = subprocess.run(
                 ["git", "pull", "--rebase"], cwd=repo_dir,
-                capture_output=True, text=True
+                capture_output=True, encoding='utf-8', errors='replace'
             )
             if pull_result.returncode != 0:
                 print("✗ git pull --rebase 失敗")
@@ -155,7 +155,7 @@ def deploy_to_vercel(html_content: str) -> bool:
 
             push_result = subprocess.run(
                 ["git", "push"], cwd=repo_dir,
-                capture_output=True, text=True
+                capture_output=True, encoding='utf-8', errors='replace'
             )
             if push_result.returncode != 0:
                 print("✗ git push 重試後仍失敗")
@@ -171,8 +171,17 @@ def deploy_to_vercel(html_content: str) -> bool:
 
 
 def send_telegram_link(up_count: int, down_count: int, top3: list) -> bool:
-    """發送 Vercel 連結到 Telegram"""
+    """發送 Vercel 連結到 Telegram，可同時發送給多個 chat_id。
+    優先讀取 TELEGRAM_CHAT_IDS（逗號分隔），不存在則 fallback 到單一的 TELEGRAM_CHAT_ID。
+    回傳 True 表示至少有一個 chat_id 發送成功。"""
     try:
+        raw_chat_ids = os.getenv("TELEGRAM_CHAT_IDS") or os.getenv("TELEGRAM_CHAT_ID") or CHAT_ID
+        chat_ids = [c.strip() for c in raw_chat_ids.split(",") if c.strip()]
+
+        if not BOT_TOKEN or not chat_ids:
+            print("Telegram skipped: missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_IDS/TELEGRAM_CHAT_ID")
+            return False
+
         date_str = datetime.date.today().strftime("%Y/%m/%d")
 
         top3_text = ""
@@ -187,23 +196,29 @@ def send_telegram_link(up_count: int, down_count: int, top3: list) -> bool:
             f"🔗 [點此查看完整報告]({VERCEL_URL})"
         )
 
-        resp = requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={
-                "chat_id": CHAT_ID,
-                "text": message,
-                "parse_mode": "Markdown",
-                "disable_web_page_preview": False,
-            },
-            timeout=15,
-        )
+        success_count = 0
+        for chat_id in chat_ids:
+            try:
+                resp = requests.post(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                    json={
+                        "chat_id": chat_id,
+                        "text": message,
+                        "parse_mode": "Markdown",
+                        "disable_web_page_preview": False,
+                    },
+                    timeout=15,
+                )
 
-        if resp.status_code == 200:
-            print(f"✓ Telegram 連結已發送")
-            return True
-        else:
-            print(f"✗ Telegram 發送失敗：{resp.text}")
-            return False
+                if resp.status_code == 200:
+                    print(f"✓ Telegram 連結已發送至 chat_id={chat_id}")
+                    success_count += 1
+                else:
+                    print(f"✗ Telegram 發送失敗 chat_id={chat_id}：{resp.text}")
+            except Exception as e:
+                print(f"✗ Telegram 發送失敗 chat_id={chat_id}：{e}")
+
+        return success_count > 0
 
     except Exception as e:
         print(f"✗ send_telegram_link 錯誤：{e}")

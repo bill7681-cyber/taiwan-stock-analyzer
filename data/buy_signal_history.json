@@ -3,14 +3,24 @@
     "date": "2026-06-07",
     "stocks": [
       {
-        "stock_id": "3189",
-        "stock_name": "景碩",
-        "close": 712.0
-      },
-      {
         "stock_id": "6197",
         "stock_name": "佳必琪",
         "close": 325.0
+      }
+    ]
+  },
+  {
+    "date": "2026-06-09",
+    "stocks": [
+      {
+        "stock_id": "2356",
+        "stock_name": "英業達",
+        "close": 70.6
+      },
+      {
+        "stock_id": "3481",
+        "stock_name": "群創",
+        "close": 49.1
       }
     ]
   }

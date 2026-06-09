@@ -56,17 +56,20 @@ def _img_block(data: bytes, alt: str, style: str = "max-width:100%;") -> str:
 
 def generate_change_bar_chart(results: list) -> bytes:
     """漲幅前10 / 跌幅前5 水平長條圖，回傳 PNG bytes。"""
-    gainers = [s for s in results if s.get("change_float", 0) > 0][:10]
+    gainers = sorted(
+        [s for s in results if s.get("change_float", 0) > 0],
+        key=lambda x: x.get("change_pct", 0), reverse=True
+    )[:10]
     losers  = sorted(
         [s for s in results if s.get("change_float", 0) < 0],
-        key=lambda x: x["change_float"]
+        key=lambda x: x.get("change_pct", 0)
     )[:5]
     if not gainers and not losers:
         return b""
 
     stocks = list(reversed(gainers)) + losers
     labels = [f"{s['stock_id']} {s['stock_name']}" for s in stocks]
-    values = [s["change_float"] for s in stocks]
+    values = [s.get("change_pct", 0) for s in stocks]
     colors = ["#d32f2f" if v > 0 else "#00897b" for v in values]
 
     fig, ax = plt.subplots(figsize=(8, 6))

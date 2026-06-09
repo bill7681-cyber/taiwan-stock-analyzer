@@ -57,9 +57,9 @@ def analyze_with_ai(stock_data):
             news_text += format_news(stock)
 
         total_stocks = len(results)
-        up_count = sum(1 for s in results if s["change_float"] > 0)
-        down_count = sum(1 for s in results if s["change_float"] < 0)
-        avg_change = sum(s["change_float"] for s in results) / total_stocks if total_stocks > 0 else 0
+        up_count = sum(1 for s in results if s.get("change_float", 0) > 0)
+        down_count = sum(1 for s in results if s.get("change_float", 0) < 0)
+        avg_change = sum(s.get("change_pct", 0) for s in results) / total_stocks if total_stocks > 0 else 0
 
         stats_text = "統計數據：\n"
         stats_text += f"- 分析股票數：{total_stocks}\n"
