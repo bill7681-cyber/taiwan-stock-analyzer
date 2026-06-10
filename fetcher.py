@@ -1,4 +1,5 @@
 import datetime
+import time
 import feedparser
 import requests
 
@@ -295,6 +296,7 @@ def fetch_stock_history(stock_id, days=30):
     all_rows = []
 
     for month in reversed(months):
+        time.sleep(0.5)
         params = {
             "response": "json",
             "date": month,
@@ -447,10 +449,10 @@ def fetch_institutional(stock_code):
     if not row:
         return result
 
-    result["foreign_net"] = parse_int(row[4]).__int__()
-    result["investment_trust_net"] = parse_int(row[10]).__int__()
-    result["dealer_net"] = parse_int(row[14]).__int__()
-    result["three_major_net"] = parse_int(row[18]).__int__()
+    result["foreign_net"] = parse_int(row[4]) // 1000
+    result["investment_trust_net"] = parse_int(row[10]) // 1000
+    result["dealer_net"] = parse_int(row[14]) // 1000
+    result["three_major_net"] = parse_int(row[18]) // 1000
     return result
 
 

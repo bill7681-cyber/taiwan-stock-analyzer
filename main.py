@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import datetime
 from pathlib import Path
 
@@ -45,13 +46,27 @@ def main():
     success_count = 0
 
     for idx, stock in enumerate(top_stocks, 1):
-        try:
-            stock_id = stock["id"]
-            stock_name = stock["name"]
-            print(f"[{idx}/{len(top_stocks)}] 抓取 {stock_id} ({stock_name})...", end=" ", flush=True)
+        stock_id = stock["id"]
+        stock_name = stock["name"]
+        print(f"[{idx}/{len(top_stocks)}] 抓取 {stock_id} ({stock_name})...", end=" ", flush=True)
 
-            data = fetch_latest_price(stock_id)
-            if data:
+        data = None
+        for attempt in range(3):
+            try:
+                data = fetch_latest_price(stock_id)
+                if data:
+                    break
+                if attempt < 2:
+                    time.sleep(2)
+            except Exception as exc:
+                if attempt < 2:
+                    print(f"(重試 {attempt + 1})...", end=" ", flush=True)
+                    time.sleep(2)
+                else:
+                    print(f"✗ (錯誤：{exc})")
+
+        if data:
+            try:
                 indicators = compute_technical_indicators(data["history"])
                 data.update(indicators)
                 data["stock_name"] = stock_name
@@ -59,10 +74,10 @@ def main():
                 results.append(data)
                 print("✓")
                 success_count += 1
-            else:
-                print("✗ (無法取得資料)")
-        except Exception as exc:
-            print(f"✗ (錯誤：{exc})")
+            except Exception as exc:
+                print(f"✗ (處理錯誤：{exc})")
+        else:
+            print("✗ (無法取得資料)")
 
     print(f"\n成功抓取 {success_count}/{len(top_stocks)} 支股票的資料\n")
 
