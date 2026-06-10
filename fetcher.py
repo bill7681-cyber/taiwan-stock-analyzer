@@ -290,27 +290,41 @@ def fetch_popular_stocks(limit=150):
 
 
 def fetch_stock_history(stock_id, days=30):
-    """抓取股票當月交易日的歷史價格資料（單次請求）"""
-    month = datetime.date.today().strftime("%Y%m")
+    """抓取股票近期交易日的歷史價格資料。
+    優先查當月；若當月無資料則自動 fallback 查前一個月。
+    """
+    today = datetime.date.today()
+    first_of_month = today.replace(day=1)
+    prev_month = (first_of_month - datetime.timedelta(days=1)).replace(day=1)
+    months_to_try = [
+        today.strftime("%Y%m"),
+        prev_month.strftime("%Y%m"),
+    ]
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "application/json, text/javascript, */*",
         "Referer": "https://www.twse.com.tw/zh/trading/historical/stock-day-all.html",
     }
-    params = {
-        "response": "json",
-        "date": month,
-        "stockNo": stock_id,
-    }
 
-    time.sleep(1)
-    try:
-        response = requests.get(STOCK_DAY_API, params=params, headers=headers, timeout=15)
-        response.raise_for_status()
-        payload = response.json()
-        rows = payload.get("data", []) if payload.get("stat") == "OK" else []
-    except Exception:
-        return []
+    rows = []
+    for month in months_to_try:
+        time.sleep(1)
+        params = {
+            "response": "json",
+            "date": month,
+            "stockNo": stock_id,
+        }
+        try:
+            response = requests.get(STOCK_DAY_API, params=params, headers=headers, timeout=15)
+            response.raise_for_status()
+            payload = response.json()
+            rows = payload.get("data", []) if payload.get("stat") == "OK" else []
+        except Exception:
+            rows = []
+
+        if rows:
+            break  # 有資料就不查前一個月
 
     if not rows:
         return []

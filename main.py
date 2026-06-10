@@ -56,8 +56,6 @@ def main():
                 data = fetch_latest_price(stock_id)
                 if data:
                     break
-                if attempt < 2:
-                    time.sleep(2)
             except Exception as exc:
                 if attempt < 2:
                     print(f"(重試 {attempt + 1})...", end=" ", flush=True)
