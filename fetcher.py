@@ -300,24 +300,29 @@ def fetch_stock_history(stock_id, days=30):
     all_rows = []
 
     for month in reversed(months):
-        time.sleep(0.5)
+        time.sleep(1.0)
         params = {
             "response": "json",
             "date": month,
             "stockNo": stock_id,
         }
-        try:
-            response = requests.get(STOCK_DAY_API, params=params, headers=headers, timeout=15)
-            response.raise_for_status()
-            payload = response.json()
-            if payload.get("stat") != "OK":
-                continue
+        for attempt in range(2):
+            try:
+                response = requests.get(STOCK_DAY_API, params=params, headers=headers, timeout=15)
+                response.raise_for_status()
+                payload = response.json()
+                if payload.get("stat") != "OK":
+                    break  # 資料不存在，不重試
 
-            rows = payload.get("data", [])
-            if rows:
-                all_rows.extend(rows)
-        except Exception:
-            continue
+                rows = payload.get("data", [])
+                if rows:
+                    all_rows.extend(rows)
+                break
+            except Exception:
+                if attempt == 0:
+                    print(f"[重試] {stock_id} {month}", end=" ", flush=True)
+                    time.sleep(3)
+                # 第二次失敗就放棄這個月份
 
     if not all_rows:
         return []
