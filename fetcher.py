@@ -290,45 +290,33 @@ def fetch_popular_stocks(limit=150):
 
 
 def fetch_stock_history(stock_id, days=30):
-    """抓取股票近 N 個交易日的歷史價格資料"""
-    months = get_month_strings(3)
+    """抓取股票當月交易日的歷史價格資料（單次請求）"""
+    month = datetime.date.today().strftime("%Y%m")
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "application/json, text/javascript, */*",
         "Referer": "https://www.twse.com.tw/zh/trading/historical/stock-day-all.html",
     }
-    all_rows = []
+    params = {
+        "response": "json",
+        "date": month,
+        "stockNo": stock_id,
+    }
 
-    for month in reversed(months):
-        time.sleep(1.0)
-        params = {
-            "response": "json",
-            "date": month,
-            "stockNo": stock_id,
-        }
-        for attempt in range(2):
-            try:
-                response = requests.get(STOCK_DAY_API, params=params, headers=headers, timeout=15)
-                response.raise_for_status()
-                payload = response.json()
-                if payload.get("stat") != "OK":
-                    break  # 資料不存在，不重試
+    time.sleep(1)
+    try:
+        response = requests.get(STOCK_DAY_API, params=params, headers=headers, timeout=15)
+        response.raise_for_status()
+        payload = response.json()
+        rows = payload.get("data", []) if payload.get("stat") == "OK" else []
+    except Exception:
+        return []
 
-                rows = payload.get("data", [])
-                if rows:
-                    all_rows.extend(rows)
-                break
-            except Exception:
-                if attempt == 0:
-                    print(f"[重試] {stock_id} {month}", end=" ", flush=True)
-                    time.sleep(3)
-                # 第二次失敗就放棄這個月份
-
-    if not all_rows:
+    if not rows:
         return []
 
     history = []
-    for row in all_rows:
+    for row in rows:
         if len(row) < 7:
             continue
 
