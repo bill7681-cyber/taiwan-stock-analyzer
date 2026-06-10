@@ -44,7 +44,9 @@ def fetch_top_stocks_by_market_cap(limit=150):
     與市值排名高度相關。
     """
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json, text/javascript, */*",
+        "Referer": "https://www.twse.com.tw/zh/trading/historical/stock-day-all.html",
     }
 
     try:
@@ -291,7 +293,9 @@ def fetch_stock_history(stock_id, days=30):
     """抓取股票近 N 個交易日的歷史價格資料"""
     months = get_month_strings(3)
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json, text/javascript, */*",
+        "Referer": "https://www.twse.com.tw/zh/trading/historical/stock-day-all.html",
     }
     all_rows = []
 
