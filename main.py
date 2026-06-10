@@ -15,7 +15,7 @@ from analyzer import compute_technical_indicators
 from ai_analysis import analyze_with_ai
 from email_sender import send_email_notification
 from report_generator import generate_html_report
-from vercel_deploy import deploy_to_vercel, send_telegram_link
+from vercel_deploy import deploy_to_vercel
 from backtester import record_buy_signals, evaluate_buy_signal_accuracy
 
 
@@ -112,14 +112,6 @@ def main():
             analysis = None
             print("⚠️ 未能取得 AI 分析結果，仍繼續執行。")
 
-        # ── Gmail 通知 ──────────────────────────────
-        # print("\n正在發送 Gmail 通知郵件...")
-        # send_email_notification(
-        #     results,
-        #     analysis_text=analysis,
-        #     recommendations=buy_candidates,
-        # )
-
         # ── 加權指數 ─────────────────────────────────
         print("\n正在取得加權指數...")
         try:
@@ -142,15 +134,13 @@ def main():
         print("\n正在推送報告到 Vercel...")
         deployed = deploy_to_vercel(html)
 
-        # ── Telegram 發送連結 ────────────────────────
-        up_count = sum(1 for s in results if float(s.get("change_float", 0)) > 0)
-        down_count = sum(1 for s in results if float(s.get("change_float", 0)) < 0)
-
-        print("\n正在發送 Telegram 通知...")
-        send_telegram_link(
-            up_count=up_count,
-            down_count=down_count,
-            top3=results[:3],
+        # ── Gmail 通知 ──────────────────────────────
+        print("\n正在發送 Gmail 通知郵件...")
+        send_email_notification(
+            results,
+            analysis_text=analysis,
+            recommendations=buy_candidates,
+            taiex=taiex,
         )
 
         if deployed:
