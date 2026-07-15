@@ -1,4 +1,5 @@
 import datetime
+import random
 import time
 import feedparser
 import requests
@@ -42,50 +43,77 @@ def fetch_top_stocks_by_market_cap(limit=150):
     因此改用「成交金額」作為市值的替代指標進行排序——
     成交金額高的個股通常是大型權值股（如台積電、聯發科、鴻海等），
     與市值排名高度相關。
+    遇到 403/429 WAF 封鎖時等待 30 秒後重試，最多 3 次。
     """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json, text/javascript, */*",
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.6",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive",
         "Referer": "https://www.twse.com.tw/zh/trading/historical/stock-day-all.html",
+        "X-Requested-With": "XMLHttpRequest",
+        "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+    })
+
+    # 先訪問首頁取得 cookies，再抓資料
+    try:
+        session.get("https://www.twse.com.tw/zh/trading/historical/stock-day-all.html", timeout=15)
+    except Exception:
+        pass
+    time.sleep(random.uniform(1.5, 3.0))
+
+    api_url = "https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL"
+    today = datetime.date.today()
+    params = {
+        "response": "json",
+        "date": today.strftime("%Y%m%d"),
     }
 
-    try:
-        api_url = "https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL"
-        today = datetime.date.today()
-        params = {
-            "response": "json",
-            "date": today.strftime("%Y%m%d"),
-        }
+    for attempt in range(3):
+        try:
+            response = session.get(api_url, params=params, timeout=15)
 
-        response = requests.get(api_url, params=params, headers=headers, timeout=15)
-        response.raise_for_status()
-        payload = response.json()
+            if response.status_code in (403, 429):
+                wait = 30 * (attempt + 1)
+                print(f"  [WAF] STOCK_DAY_ALL 被封鎖，等待 {wait} 秒後重試（第 {attempt + 1}/3 次）...")
+                time.sleep(wait)
+                continue
 
-        if payload.get("stat") == "OK":
-            rows = payload.get("data", [])
-            candidates = []
-            for row in rows:
-                if len(row) < 4:
-                    continue
-                stock_id = row[0].strip()
-                stock_name = row[1].strip()
-                if not (stock_id.isdigit() and len(stock_id) == 4 and not stock_id.startswith('0')):
-                    continue
-                turnover = parse_float(row[3])
-                candidates.append((turnover, {"id": stock_id, "name": stock_name}))
+            response.raise_for_status()
+            payload = response.json()
 
-            candidates.sort(key=lambda item: item[0], reverse=True)
-            stocks = [item[1] for item in candidates[:limit]]
+            if payload.get("stat") == "OK":
+                rows = payload.get("data", [])
+                candidates = []
+                for row in rows:
+                    if len(row) < 4:
+                        continue
+                    stock_id = row[0].strip()
+                    stock_name = row[1].strip()
+                    if not (stock_id.isdigit() and len(stock_id) == 4 and not stock_id.startswith('0')):
+                        continue
+                    turnover = parse_float(row[3])
+                    candidates.append((turnover, {"id": stock_id, "name": stock_name}))
 
-            if stocks:
-                return stocks
+                candidates.sort(key=lambda item: item[0], reverse=True)
+                stocks = [item[1] for item in candidates[:limit]]
+                if stocks:
+                    return stocks
 
-        raise RuntimeError("無法從 TWSE API 取得足夠的股票資料")
+        except Exception as exc:
+            print(f"警告（第 {attempt + 1}/3 次）：{exc}")
+            if attempt < 2:
+                time.sleep(30 * (attempt + 1))
 
-    except Exception as exc:
-        print(f"警告：{exc}")
-        print("將使用常見股票清單作為備用方案...")
-        return fetch_popular_stocks(limit)
+    print("TWSE API 3 次均失敗，將使用常見股票清單作為備用方案...")
+    return fetch_popular_stocks(limit)
 
 
 def fetch_taiex_index():
@@ -292,6 +320,7 @@ def fetch_popular_stocks(limit=150):
 def fetch_stock_history(stock_id, days=30):
     """抓取股票近期交易日的歷史價格資料。
     優先查當月；若當月無資料則自動 fallback 查前一個月。
+    遇到 403/429 WAF 封鎖時遞增等待後重試，最多 3 次。
     """
     today = datetime.date.today()
     first_of_month = today.replace(day=1)
@@ -301,30 +330,64 @@ def fetch_stock_history(stock_id, days=30):
         prev_month.strftime("%Y%m"),
     ]
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json, text/javascript, */*",
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.6",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive",
         "Referer": "https://www.twse.com.tw/zh/trading/historical/stock-day-all.html",
-    }
+        "X-Requested-With": "XMLHttpRequest",
+        "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+    })
+
+    # 先訪問首頁取得 cookies，再抓資料
+    try:
+        session.get("https://www.twse.com.tw/zh/trading/historical/stock-day-all.html", timeout=15)
+    except Exception:
+        pass
+    time.sleep(random.uniform(1.5, 3.0))
+
+    waf_wait_seconds = [30, 60, 90]
 
     rows = []
     for month in months_to_try:
-        time.sleep(1)
+        time.sleep(random.uniform(1.5, 3.5))
+
         params = {
             "response": "json",
-            "date": month,
+            "date": month + "01",
             "stockNo": stock_id,
         }
-        try:
-            response = requests.get(STOCK_DAY_API, params=params, headers=headers, timeout=15)
-            response.raise_for_status()
-            payload = response.json()
-            rows = payload.get("data", []) if payload.get("stat") == "OK" else []
-        except Exception:
-            rows = []
+
+        for attempt in range(3):
+            try:
+                response = session.get(STOCK_DAY_API, params=params, timeout=15)
+
+                if response.status_code in (403, 429):
+                    wait = waf_wait_seconds[attempt]
+                    print(f"  [WAF] {stock_id} 被封鎖，等待 {wait} 秒後重試（第 {attempt + 1}/3 次）...")
+                    time.sleep(wait)
+                    continue
+
+                response.raise_for_status()
+                payload = response.json()
+                rows = payload.get("data", []) if payload.get("stat") == "OK" else []
+                break
+
+            except Exception:
+                rows = []
+                if attempt < 2:
+                    time.sleep(waf_wait_seconds[attempt])
 
         if rows:
-            break  # 有資料就不查前一個月
+            break
 
     if not rows:
         return []
@@ -333,11 +396,9 @@ def fetch_stock_history(stock_id, days=30):
     for row in rows:
         if len(row) < 7:
             continue
-
         close_price = parse_float(row[6])
         if close_price <= 0:
             continue
-
         history.append({
             "date": row[0],
             "volume": parse_int(row[1]),
@@ -346,25 +407,26 @@ def fetch_stock_history(stock_id, days=30):
             "low": parse_float(row[5]),
             "close": close_price,
             "change": str(row[7]).strip(),
+            "source": "TWSE",
         })
-
     history.sort(key=lambda x: x["date"])
     return history[-days:]
 
 
 def fetch_latest_price(stock_id):
-    """抓取單一股票的今日收盤價和漲跌幅"""
+    """抓取單一股票的今日收盤價和漲跌幅。抓不到直接回傳 None。"""
     history = fetch_stock_history(stock_id, days=30)
+
     if not history:
         return None
 
     latest = history[-1]
-    close_val = latest['close']
+    close_val = latest["close"]
     close_price = f"{close_val:.2f}"
     price_change = latest["change"]
 
     try:
-        change_float = float(str(price_change).replace(',', '').replace('+', '').strip())
+        change_float = float(str(price_change).replace(",", "").replace("+", "").strip())
     except ValueError:
         change_float = 0.0
 
@@ -377,10 +439,11 @@ def fetch_latest_price(stock_id):
         "date": latest["date"],
         "close": close_price,
         "change": price_change,
-        "change_float": change_float,   # NTD 點數差（用於判斷漲跌方向）
-        "change_pct": change_pct,       # 真實漲跌幅 %
+        "change_float": change_float,
+        "change_pct": change_pct,
         "volume": latest["volume"],
         "history": history,
+        "source": latest.get("source", "TWSE"),
     }
 
 

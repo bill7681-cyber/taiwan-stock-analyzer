@@ -61,10 +61,27 @@ def record_buy_signals(date, stocks):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def _twse_date_to_iso(date_str):
+    """將 TWSE 民國年日期 '115/06/07' 轉換成 ISO '2026-06-07'。
+    若已是 ISO 格式（含 '-'）則原樣返回。"""
+    s = str(date_str).strip()
+    parts = s.split('/')
+    if len(parts) == 3:
+        try:
+            return f"{int(parts[0]) + 1911}-{parts[1]}-{parts[2]}"
+        except ValueError:
+            pass
+    return s
+
+
 def evaluate_buy_signal_accuracy(horizons=None):
-    """讀取歷史買入訊號紀錄，計算推薦後 N 天（預設 3、5 天）的報酬率與勝率。
-    回傳格式：{horizon: {total, wins, win_rate, avg_return, details:[...]}}
-    報酬率 = (N 天後收盤價 - 推薦當日收盤價) / 推薦當日收盤價 * 100。"""
+    """讀取歷史買入訊號紀錄，計算推薦後 N 個交易日的報酬率與勝率。
+
+    修正：
+    - 將 TWSE 民國年日期轉成 ISO 後再比對，避免格式不符導致永遠找不到
+    - 評估所有歷史訊號（不限定「剛好 h 曆日前」），有查到未來收盤價才計入
+    - total 只計入成功查到兩端價格的筆數，避免分母虛高
+    """
     if horizons is None:
         horizons = [3, 5]
 
@@ -80,72 +97,91 @@ def evaluate_buy_signal_accuracy(horizons=None):
         history = []
 
     today = datetime.date.today()
-    results = {}
+    acc = {h: {"total": 0, "wins": 0, "return_sum": 0.0, "details": []} for h in horizons}
 
-    for h in horizons:
-        total = 0
-        wins = 0
-        return_sum = 0.0
-        details = []
-        target_date = (today - datetime.timedelta(days=h)).isoformat()
+    for entry in history:
+        signal_date_iso = entry.get("date")
+        if not signal_date_iso:
+            continue
+        try:
+            signal_dt = datetime.date.fromisoformat(signal_date_iso)
+        except ValueError:
+            continue
+        if signal_dt >= today:
+            continue
 
-        entries = [e for e in history if e.get("date") == target_date]
-        for entry in entries:
-            for s in entry.get("stocks", []):
-                sid = s.get("stock_id")
-                close_then = s.get("close")
-                if not sid or not close_then:
+        for s in entry.get("stocks", []):
+            sid = s.get("stock_id")
+            close_then = s.get("close")
+            if not sid or not close_then:
+                continue
+
+            fetch_days = max(horizons) + 20
+            try:
+                hist = fetch_stock_history(sid, days=fetch_days)
+            except Exception:
+                continue
+
+            if not hist:
+                continue
+
+            # 找到訊號日在歷史中的索引（比對時先把 TWSE 民國年轉成 ISO）
+            signal_idx = None
+            for i, row in enumerate(hist):
+                if _twse_date_to_iso(row.get("date", "")) == signal_date_iso:
+                    signal_idx = i
+                    break
+
+            # 若訊號日不是交易日（如週末），往前找最近的交易日
+            if signal_idx is None:
+                for i in range(len(hist) - 1, -1, -1):
+                    if _twse_date_to_iso(hist[i].get("date", "")) <= signal_date_iso:
+                        signal_idx = i
+                        break
+
+            if signal_idx is None:
+                continue
+
+            for h in horizons:
+                future_idx = signal_idx + h
+                if future_idx >= len(hist):
+                    acc[h]["details"].append({"stock": sid, "result": "no_future_data"})
                     continue
-                total += 1
-                try:
-                    hist = fetch_stock_history(sid, days=h + 10)
-                    idx = next((i for i, it in enumerate(hist)
-                                if it.get("date") and it.get("date").endswith(target_date[-5:])), None)
-                    if idx is None:
-                        idx = next((i for i, it in enumerate(hist)
-                                    if it.get("date") and target_date in it.get("date")), None)
-                    if idx is None:
-                        details.append({"stock": sid, "result": "no_data"})
-                        continue
 
-                    future_idx = idx + h
-                    if future_idx >= len(hist):
-                        details.append({"stock": sid, "result": "no_future_data"})
-                        continue
+                close_now = hist[future_idx]["close"]
+                return_pct = (close_now - close_then) / close_then * 100
+                win = return_pct > 0
 
-                    close_now = hist[future_idx]["close"]
-                    return_pct = (close_now - close_then) / close_then * 100
-                    win = return_pct > 0
-                    if win:
-                        wins += 1
-                    return_sum += return_pct
-                    details.append({
-                        "stock": sid,
-                        "stock_name": s.get("stock_name", ""),
-                        "from": close_then,
-                        "to": close_now,
-                        "return_pct": return_pct,
-                        "win": win,
-                    })
-                except Exception:
-                    details.append({"stock": sid, "result": "error"})
+                acc[h]["total"] += 1
+                if win:
+                    acc[h]["wins"] += 1
+                acc[h]["return_sum"] += return_pct
+                acc[h]["details"].append({
+                    "stock": sid,
+                    "stock_name": s.get("stock_name", ""),
+                    "signal_date": signal_date_iso,
+                    "from": close_then,
+                    "to": close_now,
+                    "return_pct": round(return_pct, 2),
+                    "win": win,
+                })
 
-        win_rate = (wins / total * 100) if total > 0 else None
-        avg_return = (return_sum / total) if total > 0 else None
-        results[h] = {
+    final = {}
+    for h in horizons:
+        total = acc[h]["total"]
+        wins = acc[h]["wins"]
+        return_sum = acc[h]["return_sum"]
+        final[h] = {
             "total": total,
             "wins": wins,
-            "win_rate": win_rate,
-            "avg_return": avg_return,
-            "details": details,
+            "win_rate": (wins / total * 100) if total > 0 else None,
+            "avg_return": (return_sum / total) if total > 0 else None,
+            "details": acc[h]["details"],
         }
+        if total == 0:
+            final[h]["note"] = "累積中，需要更多資料"
 
-    overall_total = sum(results[h]["total"] for h in horizons)
-    if overall_total == 0:
-        for h in horizons:
-            results[h]["note"] = "累積中，需要更多資料"
-
-    return results
+    return final
 
 
 def save_recommendation(date, stocks):

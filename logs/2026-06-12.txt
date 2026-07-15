@@ -1,0 +1,2 @@
+test log line
+log file: logs\2026-06-12.txt

@@ -240,6 +240,23 @@ def _build_signal_accuracy_block(signal_accuracy):
       <p style="margin-top:12px;font-size:0.8rem;color:#6b7280">📌 統計基礎：技術買入訊號觸發當日收盤價，與 N 個交易日後收盤價的漲跌幅比較（樣本持續累積中）</p>"""
 
 
+def _safe_change_pct(stock):
+    """取得百分比漲跌幅，優先使用 change_pct 欄位，否則從 close/change_float 推算。"""
+    val = stock.get("change_pct")
+    if val is not None:
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            pass
+    try:
+        change_float = float(stock.get("change_float", 0) or 0)
+        close = float(stock.get("close", 0) or 0)
+        prev_close = close - change_float
+        return change_float / prev_close * 100 if prev_close > 0 else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def generate_html_report(results, analysis_text=None, recommendations=None, taiex=None, signal_accuracy=None):
     """把每日分析結果轉成 HTML 報告"""
     today = datetime.date.today()
@@ -261,23 +278,26 @@ def generate_html_report(results, analysis_text=None, recommendations=None, taie
         taiex_points = "—"
         taiex_sub = "今日無加權指數資料"
 
-    top5 = results[:5]
-    bottom5 = results[-5:]
+    sorted_results = sorted(results, key=_safe_change_pct, reverse=True)
+    top_gainers = [s for s in sorted_results if _safe_change_pct(s) > 0][:5]
+    bottom5 = sorted_results[-5:]
     recs = recommendations or []
 
-    # 漲幅前5列
-    top5_rows = ""
-    for i, s in enumerate(top5, 1):
-        color = "#4ade80"
-        top5_rows += f"""
+    # 漲幅前5列（只顯示上漲股票）
+    if top_gainers:
+        top5_rows = ""
+        for i, s in enumerate(top_gainers, 1):
+            top5_rows += f"""
         <tr>
           <td>{i}</td>
           <td><strong>{s['stock_id']}</strong></td>
           <td>{s.get('stock_name','')}</td>
           <td>{s.get('close','')}</td>
-          <td style="color:{color};font-weight:600">{_format_change_with_pct(s)}</td>
+          <td style="color:#f87171;font-weight:600">{_format_change_with_pct(s)}</td>
           <td>{_format_volume_lots(s)}</td>
         </tr>"""
+    else:
+        top5_rows = '<tr><td colspan="6" style="text-align:center;color:#666">今日無上漲股票</td></tr>'
 
     # 跌幅最深5列
     bottom5_rows = ""
@@ -320,7 +340,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None, taie
               <td>{_format_volume_lots(s)}</td>
             </tr>{reason_row}{tech_row}"""
     else:
-        rec_rows = '<tr><td colspan="5" style="text-align:center;color:#666">今日無明確買入訊號</td></tr>'
+        rec_rows = '<tr><td colspan="5" style="text-align:center;color:#666">今日無符合條件的早期訊號</td></tr>'
 
     # AI 分析文字（將 Markdown 語法轉換成 HTML）
     if analysis_text:
@@ -496,6 +516,7 @@ def generate_html_report(results, analysis_text=None, recommendations=None, taie
 
     <section>
       <h2>💡 技術買入訊號</h2>
+      <p style="font-size:0.8rem;color:#6b7280;margin-bottom:14px">※ 篩選條件：KD黃金交叉 ＋ 站上5日均線 ＋ 量增 ＋ 當日漲幅 ≤ 5%（已排除當日漲幅超過5%的個股，避免追高訊號）</p>
       <table>
         <thead>
           <tr><th>代號</th><th>名稱</th><th>收盤價</th><th>漲跌幅</th><th>成交量(張)</th></tr>

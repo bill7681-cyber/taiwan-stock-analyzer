@@ -4,6 +4,36 @@ import time
 import datetime
 from pathlib import Path
 
+
+class _Tee:
+    """將 stdout 同時輸出到終端機與檔案。"""
+    def __init__(self, stream, file_path):
+        self._terminal = stream
+        self._log = open(file_path, "a", encoding="utf-8", buffering=1)
+
+    def write(self, data):
+        self._terminal.write(data)
+        self._log.write(data)
+
+    def flush(self):
+        self._terminal.flush()
+        self._log.flush()
+
+    def close(self):
+        self._log.close()
+
+
+def _setup_logging():
+    log_dir = Path(__file__).resolve().parent / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / f"{datetime.date.today().isoformat()}.txt"
+    sys.stdout = _Tee(sys.stdout, log_file)
+    print(f"[log] 輸出同步寫入：{log_file}")
+
+
+_setup_logging()
+
+
 try:
     from dotenv import load_dotenv
     BASE_DIR = Path(__file__).resolve().parent
@@ -20,6 +50,39 @@ from vercel_deploy import deploy_to_vercel
 from backtester import record_buy_signals, evaluate_buy_signal_accuracy
 
 
+def _check_trading_day():
+    """回傳 True 代表今天有交易資料，可繼續執行；False 代表跳過。
+    第一層：週六(5)、週日(6) 直接跳過，不發任何 API 請求。
+    第二層：呼叫 fetch_taiex_index，確認 TWSE 回傳的最新資料日期等於今天。
+    若不一致（假日、收盤後尚未更新），同樣跳過。
+    """
+    today = datetime.date.today()
+
+    # 第一層：週末直接跳過
+    if today.weekday() >= 5:
+        print(f"今日為{'週六' if today.weekday() == 5 else '週日'}（{today}），非交易日，跳過。")
+        return False
+
+    # 第二層：確認 TWSE 當天有實際資料
+    try:
+        taiex = fetch_taiex_index()
+    except Exception as exc:
+        print(f"⚠️ 無法取得加權指數資料（{exc}），繼續執行。")
+        return True  # 無法確認時保守繼續
+
+    if taiex is None:
+        print(f"今日（{today}）TWSE 無加權指數資料，可能為假日，跳過。")
+        return False
+
+    taiex_date = str(taiex.get("date", ""))
+    today_str = today.strftime("%Y%m%d")
+    if taiex_date != today_str:
+        print(f"今日非交易日或無新資料（TWSE 最新資料日期：{taiex_date}，今日：{today_str}），跳過報告產生。")
+        return False
+
+    return True
+
+
 def print_stock_list(stocks):
     """印出股票列表"""
     print("\n" + "="*80)
@@ -33,6 +96,9 @@ def print_stock_list(stocks):
 
 
 def main():
+    if not _check_trading_day():
+        sys.exit(0)
+
     print("正在取得台股市值前150大的股票清單...")
     try:
         top_stocks = fetch_top_stocks_by_market_cap(limit=150)
@@ -97,7 +163,10 @@ def main():
         for idx, item in enumerate(results[-5:], 1):
             print(f"  {idx}. {item['stock_id']} ({item['stock_name']})：{item['change']}")
 
-        buy_candidates = [item for item in results if item.get("buy_signal")]
+        buy_candidates = [
+            item for item in results
+            if item.get("buy_signal") and float(item.get("change_pct") or 0) <= 5.0
+        ]
 
         # ── 記錄今日技術買入訊號（供日後計算 3 天/5 天後報酬率）──
         try:

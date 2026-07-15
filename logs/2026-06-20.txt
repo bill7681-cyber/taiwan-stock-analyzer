@@ -1,0 +1,2 @@
+[log] 輸出同步寫入：C:\My project\stock-analyzer\logs\2026-06-20.txt
+今日為週六（2026-06-20），非交易日，跳過。

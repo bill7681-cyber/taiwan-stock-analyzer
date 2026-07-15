@@ -28,9 +28,294 @@
     "date": "2026-06-10",
     "stocks": [
       {
-        "stock_id": "2356",
-        "stock_name": "英業達",
-        "close": 70.6
+        "stock_id": "2493",
+        "stock_name": "揚博",
+        "close": 180.5
+      },
+      {
+        "stock_id": "3008",
+        "stock_name": "大立光",
+        "close": 4130.0
+      },
+      {
+        "stock_id": "6443",
+        "stock_name": "元晶",
+        "close": 40.1
+      },
+      {
+        "stock_id": "6213",
+        "stock_name": "聯茂",
+        "close": 254.0
+      }
+    ]
+  },
+  {
+    "date": "2026-06-11",
+    "stocks": [
+      {
+        "stock_id": "8150",
+        "stock_name": "南茂",
+        "close": 97.1
+      },
+      {
+        "stock_id": "2406",
+        "stock_name": "國碩",
+        "close": 39.4
+      },
+      {
+        "stock_id": "6781",
+        "stock_name": "AES-KY",
+        "close": 1155.0
+      },
+      {
+        "stock_id": "8112",
+        "stock_name": "至上",
+        "close": 95.5
+      }
+    ]
+  },
+  {
+    "date": "2026-06-12",
+    "stocks": [
+      {
+        "stock_id": "8039",
+        "stock_name": "台虹",
+        "close": 149.5
+      },
+      {
+        "stock_id": "6271",
+        "stock_name": "同欣電",
+        "close": 238.5
+      },
+      {
+        "stock_id": "8261",
+        "stock_name": "富鼎",
+        "close": 173.5
+      },
+      {
+        "stock_id": "2404",
+        "stock_name": "漢唐",
+        "close": 1310.0
+      },
+      {
+        "stock_id": "6446",
+        "stock_name": "藥華藥",
+        "close": 930.0
+      },
+      {
+        "stock_id": "2610",
+        "stock_name": "華航",
+        "close": 20.4
+      },
+      {
+        "stock_id": "2890",
+        "stock_name": "永豐金",
+        "close": 34.15
+      },
+      {
+        "stock_id": "2426",
+        "stock_name": "鼎元",
+        "close": 68.0
+      }
+    ]
+  },
+  {
+    "date": "2026-06-13",
+    "stocks": [
+      {
+        "stock_id": "8039",
+        "stock_name": "台虹",
+        "close": 149.5
+      },
+      {
+        "stock_id": "6271",
+        "stock_name": "同欣電",
+        "close": 238.5
+      },
+      {
+        "stock_id": "8261",
+        "stock_name": "富鼎",
+        "close": 173.5
+      },
+      {
+        "stock_id": "2404",
+        "stock_name": "漢唐",
+        "close": 1310.0
+      },
+      {
+        "stock_id": "2610",
+        "stock_name": "華航",
+        "close": 20.4
+      },
+      {
+        "stock_id": "2890",
+        "stock_name": "永豐金",
+        "close": 34.15
+      },
+      {
+        "stock_id": "2426",
+        "stock_name": "鼎元",
+        "close": 68.0
+      }
+    ]
+  },
+  {
+    "date": "2026-06-14",
+    "stocks": [
+      {
+        "stock_id": "8039",
+        "stock_name": "台虹",
+        "close": 149.5
+      },
+      {
+        "stock_id": "6271",
+        "stock_name": "同欣電",
+        "close": 238.5
+      },
+      {
+        "stock_id": "8261",
+        "stock_name": "富鼎",
+        "close": 173.5
+      },
+      {
+        "stock_id": "2404",
+        "stock_name": "漢唐",
+        "close": 1310.0
+      },
+      {
+        "stock_id": "2610",
+        "stock_name": "華航",
+        "close": 20.4
+      },
+      {
+        "stock_id": "2890",
+        "stock_name": "永豐金",
+        "close": 34.15
+      },
+      {
+        "stock_id": "2426",
+        "stock_name": "鼎元",
+        "close": 68.0
+      }
+    ]
+  },
+  {
+    "date": "2026-06-15",
+    "stocks": [
+      {
+        "stock_id": "1303",
+        "stock_name": "南亞",
+        "close": 117.0
+      },
+      {
+        "stock_id": "6191",
+        "stock_name": "精成科",
+        "close": 103.0
+      },
+      {
+        "stock_id": "3035",
+        "stock_name": "智原",
+        "close": 202.0
+      },
+      {
+        "stock_id": "3019",
+        "stock_name": "亞光",
+        "close": 158.0
+      },
+      {
+        "stock_id": "2489",
+        "stock_name": "瑞軒",
+        "close": 45.0
+      },
+      {
+        "stock_id": "1560",
+        "stock_name": "中砂",
+        "close": 703.0
+      },
+      {
+        "stock_id": "1605",
+        "stock_name": "華新",
+        "close": 40.0
+      },
+      {
+        "stock_id": "2408",
+        "stock_name": "南亞科",
+        "close": 395.5
+      },
+      {
+        "stock_id": "2455",
+        "stock_name": "全新",
+        "close": 369.0
+      },
+      {
+        "stock_id": "2353",
+        "stock_name": "宏碁",
+        "close": 38.45
+      },
+      {
+        "stock_id": "3413",
+        "stock_name": "京鼎",
+        "close": 322.0
+      },
+      {
+        "stock_id": "2441",
+        "stock_name": "超豐",
+        "close": 127.0
+      },
+      {
+        "stock_id": "3533",
+        "stock_name": "嘉澤",
+        "close": 2300.0
+      }
+    ]
+  },
+  {
+    "date": "2026-06-16",
+    "stocks": [
+      {
+        "stock_id": "6209",
+        "stock_name": "今國光",
+        "close": 95.3
+      }
+    ]
+  },
+  {
+    "date": "2026-06-17",
+    "stocks": [
+      {
+        "stock_id": "1519",
+        "stock_name": "華城",
+        "close": 803.0
+      },
+      {
+        "stock_id": "1513",
+        "stock_name": "中興電",
+        "close": 172.0
+      }
+    ]
+  },
+  {
+    "date": "2026-06-18",
+    "stocks": [
+      {
+        "stock_id": "3702",
+        "stock_name": "大聯大",
+        "close": 112.0
+      },
+      {
+        "stock_id": "2207",
+        "stock_name": "和泰車",
+        "close": 482.0
+      },
+      {
+        "stock_id": "3312",
+        "stock_name": "弘憶股",
+        "close": 62.8
+      },
+      {
+        "stock_id": "2002",
+        "stock_name": "中鋼",
+        "close": 19.1
       }
     ]
   }
